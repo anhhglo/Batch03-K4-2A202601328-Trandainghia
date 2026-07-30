@@ -11,8 +11,8 @@ File này gồm ba phần: (1) những gì tôi **giao** cho từng người, (2
 | # | Việc cần chốt | Ai quyết | Chặn ai | Gấp |
 |---|---|---|---|---|
 | **B1** | Đường dẫn thật của code: `src/...` hay `codebase/src/...`? | Nghĩa | **cả 5 người** | Ngay |
-| **B2** | `unassessableItems` là mảng hay chỉ một dòng ghi chú? Contract và UI đang lệch nhau | Nghĩa + Đại | tôi, Tuấn Anh, Đại | Ngay |
-| **B3** | `relationships` cho mindmap: mảng quan hệ hay chuỗi `mindmapChild` như hiện tại? | Nghĩa + Đại | tôi, Đại | Ngay |
+| **B2** | `unassessableItems` là mảng hay chỉ một dòng ghi chú? | Nghĩa + Đại | — | ✅ đã đo, dữ liệu nói phải là mảng: `research/b2-b3-output-shape.md` |
+| **B3** | `relationships` cho mindmap: mảng hay chuỗi `mindmapChild`? | Nghĩa + Đại | — | ✅ đã đo, mảng — và **98,4% phiên không vẽ nổi cạnh nào có căn cứ** |
 | **B4** | `eval/` và `zpec.md` đang chứa nội dung thuộc vai của Đức — giữ, sửa, hay viết lại theo `.jsonl`? | Đức | Đức | Trước CP3 |
 | **B5** | `EvidenceModal` gắn cứng nhãn "Đã đối chiếu nguồn" cho mọi nội dung | Đại | Đại | Trước CP3 |
 | **B6** | Signal "hỏi lại cùng nội dung" định nghĩa thế nào để đếm được? | Đức | — | ✅ đã đo & cài sẵn, chờ Đức duyệt: `research/b6-follow-up-signal.md` |
@@ -43,6 +43,7 @@ python3 research/scripts/test_mine_chatlog.py     # phải 22/22
 | Source manifest | `codebase/src/lib/grounding/source-manifest.ts` | 12 |
 | Normalizer | `codebase/src/lib/trace/normalize.ts` | 17 |
 | Signal "hỏi lại" (B6) | `codebase/src/lib/trace/follow-up-signal.ts` | 17 |
+| Gom lượt chưa đủ dữ liệu (B2) | `codebase/src/lib/trace/unassessable.ts` | 16 |
 | Fixture Day02 | `codebase/src/data/learning-trace-fixtures.ts` | 6 |
 
 **Đặt ở `codebase/src/` chứ không phải `src/`** như `workflow.md` §4 ghi: `tsconfig` map `@/*` → `./src/*` tương đối với `codebase/`, và không có `src/` nào ở gốc repo. Đây là nơi duy nhất code biên dịch được — xem B1.
@@ -144,8 +145,8 @@ Fixture Day02 tôi giao sẽ chạy được ngay không cần DB.
 | Cần | Từ ai | Không có thì sao |
 |---|---|---|
 | **B1** — chốt đường dẫn `src/` hay `codebase/src/` | Nghĩa | Tôi đặt file sai chỗ, Phase 2 integration vỡ |
-| **B2** — `unassessableItems`: mảng hay chuỗi? | Nghĩa + Đại | Fixture của tôi sai kiểu, Đại phải sửa lại UI |
-| **B3** — `relationships` mảng hay `mindmapChild` chuỗi? | Nghĩa + Đại | như trên |
+| **B2** — duyệt `UnassessableItem[]` (đã đo & cài) | Nghĩa + Đại | 43,7% phiên mất truy vết vì một chuỗi không mang nổi nhiều mục |
+| **B3** — duyệt `MindmapRelationship[]` (đã đo) | Nghĩa + Đại | `mindmapChild: string` không biểu diễn nổi trạng thái phổ biến nhất là "không có quan hệ nào có căn cứ" |
 | **B6** — duyệt định nghĩa R14 (đã cài sẵn) | Đức | Signal chạy nhưng chưa được phép sinh gap cho tới khi có người chốt |
 | Nơi gọi `normalizeInteractions()` trong route | Tuấn Anh | Tôi không biết trả `LearningTraceInput` hay trả rows |
 
