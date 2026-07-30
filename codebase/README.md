@@ -43,6 +43,24 @@ Mở [http://localhost:3000](http://localhost:3000).
 - Kiểm tra citation và lưu trace của lần chạy.
 - Chạy golden set và ghi nhận kết quả đầy đủ.
 
+## Cấu hình môi trường CP3
+
+Tạo file local từ template rồi dán API key vào biến `OPENAI_API_KEY`:
+
+```bash
+cp .env.example .env.local
+```
+
+Các biến chính:
+
+- `OPENAI_API_KEY`: API key server-side, không dùng tiền tố `NEXT_PUBLIC_` và không commit.
+- `LEARNING_TRACE_MODEL`: model cho LLM Analyzer, mặc định `gpt-5-mini`.
+- `LEARNING_TRACE_PROMPT_VERSION`: version của system prompt.
+- `LEARNING_TRACE_TIMEOUT_MS`: timeout cho lời gọi model.
+- `LEARNING_TRACE_REAL_AI`: để `false` cho CP2; chuyển `true` khi API route CP3 đã được kiểm thử.
+
+File `.env.local` đã nằm trong `.gitignore`; `.env.example` là file mẫu được phép commit.
+
 ## Kiểm tra
 
 ```bash
