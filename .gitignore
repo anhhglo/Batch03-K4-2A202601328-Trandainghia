@@ -7,3 +7,7 @@ node_modules/
 # `python3 research/scripts/mine_chatlog.py --samples`.
 # Không commit: quy định data pack cấm đổ nguyên dữ liệu vào repo nộp bài.
 research/samples/
+
+# Python bytecode
+__pycache__/
+*.pyc

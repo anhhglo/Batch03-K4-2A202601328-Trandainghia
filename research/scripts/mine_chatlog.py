@@ -408,6 +408,22 @@ def write_samples(turns: list[Turn]) -> None:
         "logistics": [t for t in turns if t.is_logistics],
         "no-citation": [t for t in turns if not t.has_citation],
     }
+    # Bộ đối chiếu chéo cho normalizer TypeScript: bản TS phải bóc text ra kết quả
+    # y hệt bản Python trên toàn bộ 1.261 lượt. Nằm trong samples/ nên không commit.
+    conformance = [
+        {
+            "turnId": t.turn_id,
+            "studentContent": t.question_raw,
+            "expectedQuestion": t.question,
+            "expectedStudentText": t.student_text,
+            "expectedPage": t.page,
+        }
+        for t in turns
+    ]
+    path = SAMPLES_DIR / "normalizer-conformance.json"
+    path.write_text(json.dumps(conformance, ensure_ascii=False), encoding="utf-8")
+    print(f"  ghi {len(conformance):4d} lượt → {path.relative_to(REPO)}")
+
     for name, matched in buckets.items():
         path = SAMPLES_DIR / f"{name}.tsv"
         with path.open("w", encoding="utf-8") as handle:
