@@ -21,10 +21,12 @@ python3 research/scripts/test_mine_chatlog.py | tail -3
 [ "${PIPESTATUS[0]}" -eq 0 ] || fail=1
 
 echo
-echo "── 2/3 · TypeScript: normalizer · manifest · fixtures ───────────"
-node --experimental-strip-types --test research/scripts/ts/normalize.test.ts 2>&1 \
-  | grep -E "^# (tests|pass|fail)" || fail=1
-node --experimental-strip-types --test research/scripts/ts/normalize.test.ts >/dev/null 2>&1 || fail=1
+echo "── 2/3 · TypeScript: manifest · normalizer · follow-up · fixtures"
+for f in research/scripts/ts/*.test.ts; do
+  echo "  $(basename "$f")"
+  node --experimental-strip-types --test "$f" 2>&1 | grep -E "^# (tests|pass|fail)" | sed 's/^/    /'
+  node --experimental-strip-types --test "$f" >/dev/null 2>&1 || fail=1
+done
 
 echo
 echo "── 3/3 · Typecheck + lint ──────────────────────────────────────"

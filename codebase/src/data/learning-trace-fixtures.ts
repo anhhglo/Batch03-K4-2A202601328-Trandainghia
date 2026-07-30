@@ -29,6 +29,8 @@ import type { RawTutorRow } from "@/lib/trace/normalize";
 export const day02HappyRows: RawTutorRow[] = [
   {
     turnId: "T0611",
+    createdAt: "2026-07-24T08:46:31.139Z",
+    tutorAnswerSourceLength: 834,
     userId: "U0323",
     conversationId: "C0302",
     dayCode: "day02-c301",
@@ -41,6 +43,8 @@ export const day02HappyRows: RawTutorRow[] = [
   },
   {
     turnId: "T0223",
+    createdAt: "2026-07-24T08:53:07.628Z",
+    tutorAnswerSourceLength: 1262,
     userId: "U0323",
     conversationId: "C0302",
     dayCode: "day02-c301",
@@ -53,6 +57,8 @@ export const day02HappyRows: RawTutorRow[] = [
   },
   {
     turnId: "T1067",
+    createdAt: "2026-07-24T09:17:18.030Z",
+    tutorAnswerSourceLength: 851,
     userId: "U0323",
     conversationId: "C0302",
     dayCode: "day02-c301",
@@ -64,6 +70,8 @@ export const day02HappyRows: RawTutorRow[] = [
   },
   {
     turnId: "T0326",
+    createdAt: "2026-07-24T09:19:32.920Z",
+    tutorAnswerSourceLength: 1552,
     userId: "U0323",
     conversationId: "C0302",
     dayCode: "day02-c301",
@@ -86,6 +94,8 @@ export const day02HappyRows: RawTutorRow[] = [
 export const thinSessionRows: RawTutorRow[] = [
   {
     turnId: "T0209",
+    createdAt: "2026-07-24T07:58:49.749Z",
+    tutorAnswerSourceLength: 719,
     userId: "U0211",
     conversationId: "C0250",
     dayCode: "day02-c301",
@@ -111,6 +121,8 @@ export const thinSessionRows: RawTutorRow[] = [
 export const unmappableSourceRows: RawTutorRow[] = [
   {
     turnId: "T0022",
+    createdAt: "2026-07-23T07:39:30.211Z",
+    tutorAnswerSourceLength: 362,
     userId: "U0005",
     conversationId: "C0555",
     dayCode: "New learning material",
@@ -123,6 +135,8 @@ export const unmappableSourceRows: RawTutorRow[] = [
   },
   {
     turnId: "T0742",
+    createdAt: "2026-07-23T09:05:24.599Z",
+    tutorAnswerSourceLength: 998,
     userId: "U0005",
     conversationId: "C0555",
     dayCode: "New learning material",

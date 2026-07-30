@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import argparse
 import csv
+import datetime
 import hashlib
 import json
 import re
@@ -122,6 +123,44 @@ LOGISTICS = re.compile(
     r"link\s|đăng\s*ký|lịch\s*học|phòng\s*học",
     re.IGNORECASE,
 )
+
+# --- B6: signal "hỏi lại cùng nội dung sau khi đã được giải thích" -------------------
+# Spec §4 cho phép signal này sinh possible_gap. Nó không đọc được trực tiếp từ log nên
+# phải định nghĩa bằng quy tắc. Ranh giới từ dùng lookaround Unicode thay vì \b, vì \b
+# của JavaScript chỉ hiểu ASCII — bản TypeScript phải khớp từng lượt với bản này.
+_VN_BOUNDARY_L = r"(?<![^\W\d_])"
+_VN_BOUNDARY_R = r"(?![^\W\d_])"
+
+FOLLOW_UP_MARKER = re.compile(
+    _VN_BOUNDARY_L
+    + r"(?:vậy|thế|nhưng|còn|tại sao|sao lại|vẫn|nghĩa là|tức là|ý là|giải thích lại|"
+    r"cụ thể hơn|chi tiết hơn|rõ hơn|dễ hiểu hơn|ví dụ|nói lại|khác gì|thì sao)"
+    + _VN_BOUNDARY_R,
+    re.IGNORECASE,
+)
+
+# Câu hỏi về công cụ/nền tảng, không phải về kiến thức bài học.
+ABOUT_TOOL = re.compile(
+    r"bạn được xây dựng|mô hình ngôn ngữ nào|system prompt|model nào|không đọc được|"
+    r"không trả lời được|không giải thích được|báo là|hiển thị|tải|download|"
+    r"giới hạn là bao nhiêu slide|quay lại trang chủ|ocr",
+    re.IGNORECASE,
+)
+
+INJECTION = re.compile(
+    r"base64|giải mã chuỗi|gạt hết|bỏ qua hướng dẫn|luật lệ có thể linh hoạt",
+    re.IGNORECASE,
+)
+
+# Ngưỡng: câu trả lời của Tutor phải đủ dài để coi là "đã được giải thích".
+# 272 ký tự = phân vị 10 của độ dài câu trả lời trên toàn bộ 1.261 lượt.
+SUBSTANTIVE_ANSWER_CHARS = 272
+
+# Hai lượt phải nằm trong cùng một lần ngồi học.
+FOLLOW_UP_WINDOW_MINUTES = 30
+
+# Chữ học viên dài hơn ngưỡng này gần như luôn là nội dung slide dán vào.
+PASTED_TEXT_CHARS = 200
 
 # day_code gọi tên buổi học có trong data pack (2 bộ slide Day 1 / Day 2).
 # Chỉ những lượt này mới đối chiếu citation với nguồn thật được.
@@ -281,8 +320,64 @@ def pct(part: int, whole: int) -> float:
     return round(100 * part / whole, 1) if whole else 0.0
 
 
+def _parse_ts(raw: str) -> datetime.datetime:
+    return datetime.datetime.fromisoformat(raw)
+
+
+def detect_follow_ups(turns: list[Turn]) -> dict[str, str]:
+    """Tìm các lượt là "hỏi lại cùng nội dung sau khi đã được giải thích".
+
+    Trả về {turn_id của lượt hỏi lại: turn_id của lượt gốc}.
+
+    Năm điều kiện, tất cả đều bắt buộc:
+      1. cùng phiên (user_id, day_code) và cùng số trang;
+      2. lượt gốc xảy ra TRƯỚC (so theo message_created_at);
+      3. lượt gốc có câu trả lời đủ dài để coi là đã được giải thích;
+      4. hai lượt cách nhau không quá 30 phút — cùng một lần ngồi học;
+      5. lượt sau có chữ học viên tự gõ VÀ chứa từ nối tiếp.
+
+    Sau đó loại bốn nhóm dương tính giả bằng luật: hỏi về công cụ, prompt
+    injection, xin tóm tắt, và nội dung slide dán vào.
+
+    Audit tay 100% trên 29 lượt còn lại: 25 đúng, 4 sai — precision 86,2%.
+    Chi tiết và lý do từng lượt bị loại: research/b6-follow-up-signal.md
+    """
+    sessions: dict[tuple[str, str], list[Turn]] = defaultdict(list)
+    for turn in turns:
+        sessions[turn.session_key].append(turn)
+
+    found: dict[str, str] = {}
+    for group in sessions.values():
+        group.sort(key=lambda t: _parse_ts(t.created_at))
+        for index, later in enumerate(group):
+            if not later.student_text or later.page is None:
+                continue
+            if not FOLLOW_UP_MARKER.search(later.student_text):
+                continue
+            if len(later.student_text) > PASTED_TEXT_CHARS:
+                continue
+            if INJECTION.search(later.student_text):
+                continue
+            if ABOUT_TOOL.search(later.student_text):
+                continue
+            if SUMMARY_INTENT.search(later.student_text):
+                continue
+            for earlier in group[:index]:
+                if earlier.page != later.page:
+                    continue
+                if len(earlier.tutor_answer) < SUBSTANTIVE_ANSWER_CHARS:
+                    continue
+                minutes = (_parse_ts(later.created_at) - _parse_ts(earlier.created_at)).total_seconds() / 60
+                if minutes > FOLLOW_UP_WINDOW_MINUTES:
+                    continue
+                found[later.turn_id] = earlier.turn_id
+                break
+    return found
+
+
 def compute(turns: list[Turn]) -> dict:
     n = len(turns)
+    follow_ups = detect_follow_ups(turns)
     sessions: dict[tuple[str, str], list[Turn]] = defaultdict(list)
     for turn in turns:
         sessions[turn.session_key].append(turn)
@@ -385,6 +480,14 @@ def compute(turns: list[Turn]) -> dict:
             "rating_up": sum(1 for t in turns if t.rating == "up"),
             "rating_down": sum(1 for t in turns if t.rating == "down"),
         },
+        "follow_up_signal": {
+            "definition": "cùng phiên + cùng trang + lượt gốc có câu trả lời ≥272 ký tự"
+            " + cách nhau ≤30 phút + lượt sau có chữ học viên và có từ nối tiếp;"
+            " loại 4 nhóm dương tính giả bằng luật",
+            "turns": len(follow_ups),
+            "turns_pct": pct(len(follow_ups), n),
+            "audit": "audit tay 100%: 25 đúng / 29 → precision 86,2%",
+        },
         "gap_signal_coverage": {
             "turns_with_valid_gap_signal": len({t.turn_id for t in confused}),
             "turns_with_valid_gap_signal_pct": pct(len(confused), n),
@@ -423,6 +526,32 @@ def write_samples(turns: list[Turn]) -> None:
     path = SAMPLES_DIR / "normalizer-conformance.json"
     path.write_text(json.dumps(conformance, ensure_ascii=False), encoding="utf-8")
     print(f"  ghi {len(conformance):4d} lượt → {path.relative_to(REPO)}")
+
+    # Bộ đối chiếu chéo cho detector "hỏi lại" (B6): bản TS phải gắn cờ ĐÚNG
+    # cùng tập lượt như bản Python, kèm đúng lượt gốc.
+    follow_ups = detect_follow_ups(turns)
+    by_id = {t.turn_id: t for t in turns}
+    fu_payload = {
+        "signals": [
+            {"turnId": later, "ofTurnId": earlier} for later, earlier in sorted(follow_ups.items())
+        ],
+        "sessions": [
+            {
+                "learnerId": t.user_id,
+                "dayCode": t.day_code,
+                "turnId": t.turn_id,
+                "createdAt": t.created_at,
+                "page": t.page,
+                "studentText": t.student_text,
+                "tutorAnswerLength": len(t.tutor_answer),
+            }
+            for t in turns
+        ],
+    }
+    fu_path = SAMPLES_DIR / "follow-up-conformance.json"
+    fu_path.write_text(json.dumps(fu_payload, ensure_ascii=False), encoding="utf-8")
+    print(f"  ghi {len(follow_ups):4d} signal → {fu_path.relative_to(REPO)}")
+    _ = by_id
 
     for name, matched in buckets.items():
         path = SAMPLES_DIR / f"{name}.tsv"

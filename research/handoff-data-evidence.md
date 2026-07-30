@@ -15,7 +15,7 @@ File này gồm ba phần: (1) những gì tôi **giao** cho từng người, (2
 | **B3** | `relationships` cho mindmap: mảng quan hệ hay chuỗi `mindmapChild` như hiện tại? | Nghĩa + Đại | tôi, Đại | Ngay |
 | **B4** | `eval/` và `zpec.md` đang chứa nội dung thuộc vai của Đức — giữ, sửa, hay viết lại theo `.jsonl`? | Đức | Đức | Trước CP3 |
 | **B5** | `EvidenceModal` gắn cứng nhãn "Đã đối chiếu nguồn" cho mọi nội dung | Đại | Đại | Trước CP3 |
-| **B6** | Signal "hỏi lại cùng nội dung" định nghĩa thế nào để đếm được? | Đức | tôi | Trước CP3 |
+| **B6** | Signal "hỏi lại cùng nội dung" định nghĩa thế nào để đếm được? | Đức | — | ✅ đã đo & cài sẵn, chờ Đức duyệt: `research/b6-follow-up-signal.md` |
 
 ---
 
@@ -36,15 +36,22 @@ python3 research/scripts/mine_chatlog.py --samples
 python3 research/scripts/test_mine_chatlog.py     # phải 22/22
 ```
 
-### 1.2 · Chưa xong — 3 module code
+### 1.2 · Bốn module code — đã xong
 
-| Module | File | Chặn bởi |
+| Module | File | Test |
 |---|---|---|
-| Source manifest | `src/lib/grounding/source-manifest.ts` | B1 |
-| Normalizer | `src/lib/trace/normalize.ts` | B1 |
-| Fixture Day02 | `src/data/learning-trace-fixtures.ts` | B1, B2, B3 |
+| Source manifest | `codebase/src/lib/grounding/source-manifest.ts` | 12 |
+| Normalizer | `codebase/src/lib/trace/normalize.ts` | 17 |
+| Signal "hỏi lại" (B6) | `codebase/src/lib/trace/follow-up-signal.ts` | 17 |
+| Fixture Day02 | `codebase/src/data/learning-trace-fixtures.ts` | 6 |
 
-Thiết kế chi tiết ở mục 4.
+**Đặt ở `codebase/src/` chứ không phải `src/`** như `workflow.md` §4 ghi: `tsconfig` map `@/*` → `./src/*` tương đối với `codebase/`, và không có `src/` nào ở gốc repo. Đây là nơi duy nhất code biên dịch được — xem B1.
+
+Fixture hoá ra **không** bị chặn bởi B2/B3: theo DoD của CP3, fixture là **đầu vào** của `POST /api/learning-trace`, mà `LearningTraceInput` đã chốt trong `workflow.md` §3. Hai trường đang tranh chấp nằm ở phía output.
+
+```bash
+bash research/scripts/run-tests.sh    # 74 test + tsc + eslint
+```
 
 ---
 
@@ -80,7 +87,7 @@ Tôi đã mắc đúng lỗi này ở lượt đếm đầu và nó thổi phồ
 
 **Một số liệu trong đó cần sửa:** `zpec.md`, `eval/golden-set.md` và `eval/rubric-cham.md` đang ghi *"chỉ 7,2% (91/1261) `day_code` đối chiếu được"*. Con số đúng là **8,6% (108/1261)** — regex cũ bỏ sót `day_code` có dấu cách (`Day 1`, `Day 2`, 17 lượt). Kết luận thiết kế không đổi, chỉ đổi con số. Tôi không sửa vì file thuộc vai bạn.
 
-**Cần bạn định nghĩa (B6):** signal *"hỏi lại cùng nội dung sau khi đã được giải thích"* trong spec §4. Tôi đếm được **206 lần** một học viên hỏi ≥2 lượt về cùng một trang trong cùng phiên, nhưng đó là **cận trên thô** — hỏi lại cùng trang có thể là đào sâu chứ không phải chưa hiểu. Cần bạn cho quy tắc phân biệt, tôi sẽ cài vào normalizer và đếm chính xác.
+**B6 — đã làm xong phần đo, chờ bạn duyệt:** `research/b6-follow-up-signal.md`. Tóm tắt: định nghĩa thô "cùng trang" gắn cờ 318 lượt (25,2%) và lẫn đầy rác. Tôi đo 9 định nghĩa ứng viên, chọn R14 → **29 lượt (2,3%)**, audit tay 100% được **precision 86,2%** (25/29). Đã cài ở `codebase/src/lib/trace/follow-up-signal.ts` kèm 17 test và phép đối chiếu chéo TS↔Python. **Khuyến nghị: không tự động thành `possible_gap`** — dùng `confidence: "low"` và bắt buộc học viên xác nhận. Ba câu cần bạn trả lời ở mục 7 của memo.
 
 **Số liệu nền cho golden set:** median 1 lượt/phiên · 51,9% phiên chỉ 1 lượt · 50 phiên có ≥5 lượt. Nếu golden set toàn phiên dày thì nó không phản ánh dữ liệu thật.
 
@@ -89,19 +96,24 @@ Tôi đã mắc đúng lỗi này ở lượt đếm đầu và nó thổi phồ
 Hai hàm tôi sẽ cung cấp, dùng ngay trong `POST /api/learning-trace`:
 
 ```ts
-// src/lib/trace/normalize.ts
+// codebase/src/lib/grounding/source-manifest.ts
+export function resolveSources(dayCode: string): SourceResolution;
+export function verifyCitation(dayCode: string, page: number): CitationCheck;
+
+// codebase/src/lib/trace/normalize.ts
 export function normalizeInteractions(
-  rows: RawTutorRow[],
+  rows: readonly RawTutorRow[],
   filter: { learnerId: string; dayCode: string; conversationId?: string },
+  sourceResolution: SourceResolution,   // truyền vào, hàm không tự gọi manifest
 ): LearningTraceInput;
 
-// src/lib/grounding/source-manifest.ts
-export type SourceResolution =
-  | { status: "mapped"; sources: SourceChunk[] }
-  | { status: "unmappable"; dayCode: string; reason: string };
-
-export function resolveSources(dayCode: string): SourceResolution;
+// codebase/src/lib/trace/follow-up-signal.ts
+export function detectFollowUpSignals(
+  interactions: readonly NormalizedInteraction[],
+): FollowUpSignal[];
 ```
+
+**`verifyCitation()` bắt thêm một tầng bạn cần cho citation guardrail:** bộ slide trong pack là bản rút gọn 29 trang còn Tutor production trích tới trang 96, nên chỉ **41/1.261 lượt (3,3%)** có citation thực sự kiểm chứng được — thấp hơn nhiều so với 8,6% `day_code` map được.
 
 **`resolveSources` không bao giờ trả mảng rỗng im lặng.** Với ~91% `day_code`, nó trả `status: "unmappable"` kèm lý do đọc được. Citation guardrail của bạn nên rẽ nhánh theo `status` này thay vì tự đoán: `unmappable` → toàn bộ nội dung phải vào `unassessableItems`, không gọi model để sinh giải thích.
 
@@ -134,7 +146,7 @@ Fixture Day02 tôi giao sẽ chạy được ngay không cần DB.
 | **B1** — chốt đường dẫn `src/` hay `codebase/src/` | Nghĩa | Tôi đặt file sai chỗ, Phase 2 integration vỡ |
 | **B2** — `unassessableItems`: mảng hay chuỗi? | Nghĩa + Đại | Fixture của tôi sai kiểu, Đại phải sửa lại UI |
 | **B3** — `relationships` mảng hay `mindmapChild` chuỗi? | Nghĩa + Đại | như trên |
-| **B6** — định nghĩa signal "hỏi lại" | Đức | Normalizer chỉ gắn cờ thô 206 lượt, không dùng làm gap được |
+| **B6** — duyệt định nghĩa R14 (đã cài sẵn) | Đức | Signal chạy nhưng chưa được phép sinh gap cho tới khi có người chốt |
 | Nơi gọi `normalizeInteractions()` trong route | Tuấn Anh | Tôi không biết trả `LearningTraceInput` hay trả rows |
 
 ---
@@ -251,4 +263,4 @@ Giữ đúng shape của `mockLearningTrace` để `LearningTraceApp.tsx` đổi
 ### 5.5 · Việc còn treo của phần evidence
 
 - Đo **recall** cho quy tắc đếm "xin tóm tắt" (hiện mới có precision 96,7%) — cần mẫu ngẫu nhiên trên toàn bộ 1.261 lượt.
-- Tách signal "hỏi lại" thật từ 206 lượt cận trên, sau khi có B6 từ Đức.
+- ~~Tách signal "hỏi lại" thật từ 206 lượt cận trên~~ — xong, xem `b6-follow-up-signal.md`. Còn chờ Đức duyệt định nghĩa.

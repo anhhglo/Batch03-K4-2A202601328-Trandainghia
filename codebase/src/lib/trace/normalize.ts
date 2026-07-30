@@ -33,7 +33,14 @@ export interface RawTutorRow {
   tutorContent: string;
   citations: number[];
   rating?: "up" | "down" | null;
-  createdAt?: string;
+  /** ISO 8601. Bắt buộc: dùng để sắp thứ tự khi phát hiện signal "hỏi lại". */
+  createdAt: string;
+  /**
+   * Độ dài câu trả lời gốc, tính bằng ký tự. Chỉ khai báo khi `tutorContent` đã
+   * bị cắt ngắn (fixture cắt còn ≤250 ký tự theo quy định bảo mật data pack).
+   * Nếu bỏ trống, độ dài được lấy từ chính `tutorContent`.
+   */
+  tutorAnswerSourceLength?: number;
 }
 
 export interface InteractionFlags {
@@ -60,6 +67,13 @@ export interface NormalizedInteraction {
   tutorAnswer: string;
   citations: number[];
   rating?: "up" | "down";
+  /** ISO 8601, mang theo từ log gốc để sắp thứ tự lượt trong phiên. */
+  createdAt: string;
+  /**
+   * Độ dài câu trả lời TRONG NGUỒN, không phải độ dài `tutorAnswer` ở đây.
+   * Hai giá trị lệch nhau khi dữ liệu đã bị cắt ngắn để đưa vào repo.
+   */
+  tutorAnswerLength: number;
   flags: InteractionFlags;
 }
 
@@ -167,6 +181,8 @@ export function normalizeInteractions(
       tutorAnswer: row.tutorContent,
       citations: [...row.citations],
       rating: row.rating ?? undefined,
+      createdAt: row.createdAt,
+      tutorAnswerLength: row.tutorAnswerSourceLength ?? row.tutorContent.length,
       flags: {
         isTemplateQuestion: TEMPLATE_QUESTION.test(row.studentContent),
         hasNoStudentWords: studentText.length === 0,

@@ -111,6 +111,12 @@
     "rating_up": 33,
     "rating_down": 37
   },
+  "follow_up_signal": {
+    "definition": "cùng phiên + cùng trang + lượt gốc có câu trả lời ≥272 ký tự + cách nhau ≤30 phút + lượt sau có chữ học viên và có từ nối tiếp; loại 4 nhóm dương tính giả bằng luật",
+    "turns": 29,
+    "turns_pct": 2.3,
+    "audit": "audit tay 100%: 25 đúng / 29 → precision 86,2%"
+  },
   "gap_signal_coverage": {
     "turns_with_valid_gap_signal": 8,
     "turns_with_valid_gap_signal_pct": 0.6,
