@@ -34,9 +34,13 @@ const FOLLOW_UP_MARKER =
 const ABOUT_TOOL =
   /bạn được xây dựng|mô hình ngôn ngữ nào|system prompt|model nào|không đọc được|không trả lời được|không giải thích được|báo là|hiển thị|tải|download|giới hạn là bao nhiêu slide|quay lại trang chủ|ocr/iu;
 
-/** Yêu cầu tóm tắt — là nhu cầu hợp lệ nhưng không phải dấu hiệu chưa hiểu. */
+/**
+ * Yêu cầu tóm tắt — là nhu cầu hợp lệ nhưng không phải dấu hiệu chưa hiểu.
+ * Nhận cả bản không dấu: 10,8% lượt có chữ học viên được gõ hoàn toàn không dấu.
+ * Phải khớp từng chữ với SUMMARY_INTENT trong research/scripts/mine_chatlog.py.
+ */
 const SUMMARY_INTENT =
-  /tóm\s*tắt|tóm\s*lược|tổng\s*hợp|tổng\s*kết|ý\s*chính|nội\s*dung\s*chính|ôn\s*tập|ôn\s*lại|điểm\s*quan\s*trọng/iu;
+  /tóm\s*tắt|tóm\s*lược|tổng\s*hợp|tổng\s*kết|ý\s*chính|nội\s*dung\s*chính|ôn\s*tập|ôn\s*lại|điểm\s*quan\s*trọng|tom\s*tat|tong\s*hop|tong\s*ket|y\s*chinh|noi\s*dung\s*chinh|on\s*tap|on\s*lai|diem\s*quan\s*trong/iu;
 
 /** Nỗ lực chèn chỉ thị — phải bị loại khỏi mọi phân tích kiến thức. */
 const INJECTION =

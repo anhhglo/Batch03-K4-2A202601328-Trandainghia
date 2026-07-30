@@ -11,14 +11,14 @@ Bổ sung cho đường A trong `survey-summary.md` (n = 34). B chứng minh pai
 
 ```bash
 python3 research/scripts/mine_chatlog.py --samples   # sinh research/metrics.json + research/samples/
-python3 research/scripts/test_mine_chatlog.py        # 21 test, phải xanh hết
+python3 research/scripts/test_mine_chatlog.py        # 25 test, phải xanh hết
 ```
 
 | Thành phần | Vai trò |
 |---|---|
 | `research/scripts/mine_chatlog.py` | Nguồn duy nhất sinh ra mọi con số dưới đây |
 | `research/metrics.json` | Kết quả máy đọc được, pin theo `sha256` của file CSV |
-| `research/scripts/test_mine_chatlog.py` | 21 test: toàn vẹn dữ liệu · đúng đắn hàm tách text · **khoá từng con số đang trích trong file này** |
+| `research/scripts/test_mine_chatlog.py` | 25 test: toàn vẹn dữ liệu · đúng đắn hàm tách text · **khoá từng con số đang trích trong file này** |
 | `research/samples/*.tsv` | Toàn bộ lượt khớp mỗi quy tắc, để người ngoài nhóm audit phép đếm |
 
 Đổi file CSV → `sha256` đổi → test đỏ. Sửa regex mà quên cập nhật file này → test đỏ. Trích `turn_id` không tồn tại → test đỏ.
@@ -35,7 +35,7 @@ Bước này không phải chi tiết kỹ thuật — **bỏ qua nó thì mọi
 
 | Nhãn | Quy tắc | Cách audit |
 |---|---|---|
-| Xin tóm tắt/ôn tập | khớp `tóm tắt · tóm lược · tổng hợp · tổng kết · ý chính · nội dung chính · ôn tập · ôn lại · điểm quan trọng` | mẫu ngẫu nhiên seed=42, n=30 → **precision 96,7% (29/30)** |
+| Xin tóm tắt/ôn tập | khớp `tóm tắt · tóm lược · tổng hợp · tổng kết · ý chính · nội dung chính · ôn tập · ôn lại · điểm quan trọng`, **có dấu và không dấu** | precision: mẫu seed=42 n=30 → **96,7%**<br>recall: mẫu phân tầng 120/776 → **87,2%** (KTC95 70,3–95,2%) |
 | Nói rõ chưa hiểu | khớp `chưa/không hiểu · chưa rõ · khó hiểu · giải thích lại · mơ hồ` | **audit tay 100%**: 10 khớp thô → loại 2 → còn 8 |
 | Logistics | khớp `deadline · nộp bài · tải xuống · download · link · đăng ký · lịch học` | **audit tay 100%**: 9 khớp thô → loại 4 → còn 5 |
 | Câu hỏi template | khớp chuỗi cố định `Giải thích đoạn bôi đen ở Trang N` | không cần audit |
@@ -58,7 +58,7 @@ Mọi lượt bị loại tay đều có mã và **lý do bằng chữ** trong `
 
 ### 4.1 · Học viên đang tự làm thủ công đúng công việc của Learning Trace
 
-**130/1.261 lượt (10,3%), từ 92/369 học viên (24,9%)** là yêu cầu tóm tắt hoặc hệ thống hoá lại nội dung để ôn.
+**134/1.261 lượt (10,6%), từ 94/369 học viên (25,5%)** là yêu cầu tóm tắt hoặc hệ thống hoá lại nội dung để ôn.
 
 Đây là bằng chứng pain mạnh nhất trong data pack: không cần hỏi ai, cứ 10 lượt hỏi Tutor thì có 1 lượt học viên đang **tự tay yêu cầu chính output mà nhóm định xây**. Một phần tư số học viên đã làm việc này ít nhất một lần trong 6 ngày.
 
@@ -69,7 +69,7 @@ Mọi lượt bị loại tay đều có mã và **lý do bằng chữ** trong `
 | Signal | Số lượt | Tỷ lệ |
 |---|---:|---:|
 | Học viên **nói rõ** chưa hiểu | **8** | 0,6% |
-| Hỏi lại ≥2 lượt về cùng một trang trong cùng phiên | 206 | *(cận trên thô)* |
+| Hỏi lại cùng nội dung sau khi đã được giải thích | **29** | 2,3% |
 | Tutor chủ động kiểm tra hiểu bài (`asked_check_question`) | 3 | 0,2% |
 | Có rating | 70 | 5,6% |
 | Trường `misconceptions` từng được dùng | **0** | 0% |
@@ -77,7 +77,7 @@ Mọi lượt bị loại tay đều có mã và **lý do bằng chữ** trong `
 
 Chỉ **8 lượt trong toàn bộ 1.261** có học viên nói thẳng là chưa hiểu. Spec §4 chỉ cho phép ba loại signal sinh `possible_gap`, trong đó "nói rõ chưa hiểu" là loại đếm được chắc chắn nhất — và nó gần như không tồn tại.
 
-Con số 206 "hỏi lại cùng trang" là **cận trên thô**, chưa phải signal: hỏi lại cùng trang có thể là đào sâu chứ không phải chưa hiểu. Tách được phần thật cần so từng cặp lượt liên tiếp — việc này thuộc signal taxonomy của Nguyễn Xuân Đức, xem `handoff-data-evidence.md`.
+Signal "hỏi lại" đã được định nghĩa và đo riêng: quy tắc thô "hai lượt cùng một trang" gắn cờ 318 lượt (25,2%) và lẫn đầy rác, còn quy tắc chặt cho **29 lượt (2,3%)** với precision 86,2% theo audit tay 100%. Chi tiết và ba câu cần Nguyễn Xuân Đức chốt: `b6-follow-up-signal.md`.
 
 **Hệ quả thiết kế:** nhánh mặc định của sản phẩm phải là "đã tìm hiểu" và "chưa đủ dữ liệu", không phải "có khả năng chưa vững". Hai trường `misconceptions` và `follow_ups` rỗng 100% xác nhận VLearn hiện chưa hề lưu kết quả phân tích lỗ hổng có cấu trúc — tức Learning Trace không trùng lặp với thứ đã có.
 
@@ -172,10 +172,36 @@ Ghi lại vì hai lý do: (1) kết luận thiết kế ở 4.2 phụ thuộc ho
 
 Một con số khác cũng đã sửa: `day_code` đối chiếu được là **8,6% (108 lượt)**, không phải 7,2% như bản nháp §7 ghi — regex cũ bỏ sót `day_code` có dấu cách (`Day 1`, `Day 2`). Xem `handoff-data-evidence.md` mục bàn giao cho Nguyễn Xuân Đức.
 
+## 6b. Đo recall cho quy tắc "xin tóm tắt"
+
+Precision trả lời "cái đã đếm có đúng không". Recall trả lời "còn sót bao nhiêu" — và nó chỉ đo được bằng cách lấy mẫu từ phía **không khớp**.
+
+**Cách làm — phân tầng:**
+
+| Tầng | Cỡ | Xử lý |
+|---|---:|---|
+| A · lượt không có chữ học viên nào | 355 | Loại **theo định nghĩa**: quy tắc đọc `student_text`, học viên không gõ gì thì không thể là yêu cầu tóm tắt. Không cần lấy mẫu. |
+| B · lượt có chữ học viên | 776 | Lấy mẫu **120** (seed 2026 và 777), audit tay từng lượt |
+
+**Kết quả:** 4/120 lượt trong tầng B là dương tính bị bỏ sót.
+
+| Lượt sót | Chữ học viên | Vì sao sót |
+|---|---|---|
+| `T0737` | *"Neu ba y chinh cua slide…"* | **viết không dấu** — quy tắc cũ bắt buộc có dấu |
+| `T1253` | *"Toàn bộ slide này trình bày về nội dung gì?"* | ngữ nghĩa: hỏi tổng quan mà không dùng từ khoá |
+| `T0591` | *"nêu những kiến thức cần học một cách chi tiết…"* | ngữ nghĩa |
+| `T1149` | *"nội dung bài học day 2"* | ngữ nghĩa |
+
+**Một lỗ hổng hệ thống lộ ra:** **88/812 lượt có chữ học viên (10,8%) được gõ hoàn toàn không dấu.** Quy tắc cũ bắt buộc có dấu nên bỏ sót toàn bộ nhóm này. Đã thêm biến thể không dấu → bắt thêm **4 lượt** (`T0224`, `T0737`, `T0879`, `T1184`), tất cả đều là yêu cầu tóm tắt thật, tức phần thêm có **precision 100%**.
+
+**Recall sau khi sửa: ước lượng 87,2%** (KTC 95%: 70,3–95,2%).
+
+Khoảng tin cậy rộng vì mẫu tầng B mới có 120/776. Ba lượt còn sót đều là **ngữ nghĩa chứ không phải chính tả** — học viên hỏi "nội dung … là gì" mà không dùng từ khoá nào. Bắt được nhóm này cần phân loại ý định chứ không phải thêm từ khoá, nằm ngoài phạm vi lát cắt hiện tại.
+
 ## 7. Giới hạn
 
 - Dữ liệu chỉ 6 ngày (22–29/07/2026), không phủ hết một khoá.
 - "Hỏi lại cùng trang" (206) là cận trên thô, chưa phải signal đã xác thực.
 - Quy tắc đếm dựa trên tiếng Việt có dấu; lượt viết không dấu hoặc tiếng Anh có thể bị bỏ sót — riêng bucket logistics đã thấy một lượt tiếng Anh (`T0752`) và nó vẫn được bắt nhờ từ khoá `download`.
-- Precision đã đo cho bucket tóm tắt (96,7%); **recall chưa đo** — cần một mẫu ngẫu nhiên trên toàn bộ 1.261 lượt để ước lượng số lượt bị bỏ sót.
+- Recall của quy tắc tóm tắt ước lượng **87,2%** nhưng khoảng tin cậy rộng (70,3–95,2%) vì chỉ lấy mẫu 120/776. Muốn siết lại thì phải mở rộng mẫu.
 - Số liệu mô tả hành vi **trong** VLearn. Việc học viên bỏ sang ChatGPT (7/34 phiếu ở đường A) không để lại dấu vết nào trong chatlog — mining một mình không thấy được phần này.

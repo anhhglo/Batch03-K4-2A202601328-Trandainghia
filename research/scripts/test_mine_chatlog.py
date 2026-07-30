@@ -28,6 +28,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from mine_chatlog import (  # noqa: E402
     CSV_PATH,
     MANUAL_EXCLUSIONS,
+    RECALL_AUDIT,
+    SUMMARY_INTENT,
     OUT_JSON,
     REPO,
     compute,
@@ -63,9 +65,9 @@ EXPECTED_METRICS = {
     ("question_shape", "turns_with_selection_pct"): 99.3,
     ("question_shape", "template_questions"): 357,
     ("question_shape", "template_questions_pct"): 28.3,
-    ("demand_signal", "summary_requests"): 130,
-    ("demand_signal", "summary_requests_pct"): 10.3,
-    ("demand_signal", "summary_request_users"): 92,
+    ("demand_signal", "summary_requests"): 134,
+    ("demand_signal", "summary_requests_pct"): 10.6,
+    ("demand_signal", "summary_request_users"): 94,
     ("demand_signal", "explicit_confusion"): 8,
     ("demand_signal", "logistics"): 5,
     ("instrumentation_gaps", "misconceptions_used"): 0,
@@ -318,6 +320,34 @@ def _():
             f"        doc : {needle[:70]}\n"
             f"        thật: {haystack[:70]}"
         )
+
+
+@check("recall: mọi turn_id trong RECALL_AUDIT đều tồn tại và có lý do rõ")
+def _():
+    ids = {t.turn_id for t in TURNS}
+    audit = RECALL_AUDIT["summary_intent"]
+    for turn_id, reason in audit["false_negatives_before_fix"].items():
+        assert turn_id in ids, f"{turn_id} không có trong chatlog"
+        assert len(reason) > 25, f"{turn_id}: lý do quá sơ sài"
+    for turn_id in audit["fixed_by_unaccented_variants"]:
+        assert turn_id in ids, f"{turn_id} không có trong chatlog"
+
+
+@check("recall: các lượt khai là 'đã sửa nhờ bản không dấu' giờ phải khớp thật")
+def _():
+    by_id = {t.turn_id: t for t in TURNS}
+    for turn_id in RECALL_AUDIT["summary_intent"]["fixed_by_unaccented_variants"]:
+        assert SUMMARY_INTENT.search(by_id[turn_id].student_text), (
+            f"{turn_id} vẫn không khớp — khai đã sửa nhưng chưa sửa được"
+        )
+
+
+@check("recall: bộ đếm bao trọn các lượt đã sửa, không đếm hụt")
+def _():
+    fixed = RECALL_AUDIT["summary_intent"]["fixed_by_unaccented_variants"]
+    matched = {t.turn_id for t in TURNS if t.wants_summary}
+    missing = [t for t in fixed if t not in matched]
+    assert not missing, f"khai đã bắt được nhưng thực tế vẫn sót: {missing}"
 
 
 def main() -> int:

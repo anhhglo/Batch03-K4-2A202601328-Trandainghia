@@ -19,7 +19,7 @@
     "method": {
       "explicit_confusion": "audit tay 100% — 10 lượt khớp thô, loại 2, còn 8",
       "logistics": "audit tay 100% — 9 lượt khớp thô, loại 4, còn 5",
-      "summary_intent": "audit mẫu ngẫu nhiên seed=42, n=30",
+      "summary_intent": "precision: mẫu seed=42 n=30 → 96,7%. recall: mẫu phân tầng 120/776 seed 2026+777 → 87,2% (KTC95 70,3–95,2%)",
       "template_question": "quy tắc chuỗi cố định, không cần audit",
       "no_citation": "đọc trực tiếp trường citations, không cần audit"
     },
@@ -44,6 +44,31 @@
         "false_positives": {
           "T0218": "Cụm 'không tổng hợp nhiều' nằm trong đoạn đề bài dán từ slide."
         }
+      }
+    },
+    "recall_audit": {
+      "summary_intent": {
+        "method": "phân tầng; tầng A (không có chữ học viên) loại theo định nghĩa, tầng B lấy mẫu 120/776 với seed 2026 và 777",
+        "stratum_b_sample": 120,
+        "stratum_b_population": 776,
+        "false_negatives_before_fix": {
+          "T1253": "Toàn bộ slide này trình bày về nội dung gì? — hỏi tổng quan cả bộ slide.",
+          "T0591": "nêu những kiến thức cần học một cách chi tiết — xin liệt kê toàn bộ nội dung.",
+          "T1149": "nội dung bài học day 2 — hỏi tổng quan cả buổi.",
+          "T0737": "Neu ba y chinh cua slide — viết KHÔNG DẤU nên quy tắc cũ bỏ sót. Đã sửa bằng cách thêm biến thể không dấu."
+        },
+        "fixed_by_unaccented_variants": [
+          "T0224",
+          "T0737",
+          "T0879",
+          "T1184"
+        ],
+        "recall_pct_estimate": 87.2,
+        "recall_ci95": [
+          70.3,
+          95.2
+        ],
+        "remaining_gap": "3 lượt còn sót là do ngữ nghĩa, không do chính tả: hỏi 'nội dung ... là gì' mà không dùng từ khoá tóm tắt."
       }
     },
     "raw_matches_before_exclusion": {
@@ -92,9 +117,9 @@
     "median_student_text_chars": 19
   },
   "demand_signal": {
-    "summary_requests": 130,
-    "summary_requests_pct": 10.3,
-    "summary_request_users": 92,
+    "summary_requests": 134,
+    "summary_requests_pct": 10.6,
+    "summary_request_users": 94,
     "explicit_confusion": 8,
     "explicit_confusion_pct": 0.6,
     "explicit_confusion_users": 8,

@@ -81,7 +81,7 @@ MANUAL_EXCLUSIONS: dict[str, dict[str, str]] = {
 AUDIT_METHOD = {
     "explicit_confusion": "audit tay 100% — 10 lượt khớp thô, loại 2, còn 8",
     "logistics": "audit tay 100% — 9 lượt khớp thô, loại 4, còn 5",
-    "summary_intent": "audit mẫu ngẫu nhiên seed=42, n=30",
+    "summary_intent": "precision: mẫu seed=42 n=30 → 96,7%. recall: mẫu phân tầng 120/776 seed 2026+777 → 87,2% (KTC95 70,3–95,2%)",
     "template_question": "quy tắc chuỗi cố định, không cần audit",
     "no_citation": "đọc trực tiếp trường citations, không cần audit",
 }
@@ -99,13 +99,42 @@ SAMPLE_AUDIT = {
     },
 }
 
+# Đo recall: lấy mẫu từ phía KHÔNG khớp để tìm dương tính bị bỏ sót.
+# Phân tầng vì 355 lượt không có chữ học viên nào — theo định nghĩa của quy tắc
+# (đọc student_text) thì chúng không thể là yêu cầu tóm tắt, nên không cần lấy mẫu.
+RECALL_AUDIT = {
+    "summary_intent": {
+        "method": "phân tầng; tầng A (không có chữ học viên) loại theo định nghĩa,"
+        " tầng B lấy mẫu 120/776 với seed 2026 và 777",
+        "stratum_b_sample": 120,
+        "stratum_b_population": 776,
+        "false_negatives_before_fix": {
+            "T1253": "Toàn bộ slide này trình bày về nội dung gì? — hỏi tổng quan cả bộ slide.",
+            "T0591": "nêu những kiến thức cần học một cách chi tiết — xin liệt kê toàn bộ nội dung.",
+            "T1149": "nội dung bài học day 2 — hỏi tổng quan cả buổi.",
+            "T0737": "Neu ba y chinh cua slide — viết KHÔNG DẤU nên quy tắc cũ bỏ sót."
+            " Đã sửa bằng cách thêm biến thể không dấu.",
+        },
+        "fixed_by_unaccented_variants": ["T0224", "T0737", "T0879", "T1184"],
+        "recall_pct_estimate": 87.2,
+        "recall_ci95": [70.3, 95.2],
+        "remaining_gap": "3 lượt còn sót là do ngữ nghĩa, không do chính tả:"
+        " hỏi 'nội dung ... là gì' mà không dùng từ khoá tóm tắt.",
+    },
+}
+
 # Học viên chủ động xin tóm tắt / hệ thống hoá lại nội dung để ôn.
 # Đây là job của Learning Trace, học viên đang tự làm thủ công qua Tutor.
 # Lưu ý: KHÔNG dùng "từ khoá" đứng một mình làm trigger. Audit mẫu 30 lượt cho thấy
 # "giải thích các từ khóa AI, ML, DL" là câu hỏi kiến thức, không phải xin tóm tắt.
+# Phải nhận cả bản KHÔNG DẤU: 88/812 lượt có chữ học viên (10,8%) được gõ hoàn
+# toàn không dấu. Đo recall bắt được lỗ hổng này — quy tắc cũ bỏ sót 4 lượt xin
+# tóm tắt chỉ vì thiếu dấu, trong đó có "Neu ba y chinh cua slide" (T0737).
 SUMMARY_INTENT = re.compile(
     r"tóm\s*tắt|tóm\s*lược|tổng\s*hợp|tổng\s*kết|ý\s*chính|"
-    r"nội\s*dung\s*chính|ôn\s*tập|ôn\s*lại|điểm\s*quan\s*trọng",
+    r"nội\s*dung\s*chính|ôn\s*tập|ôn\s*lại|điểm\s*quan\s*trọng|"
+    r"tom\s*tat|tong\s*hop|tong\s*ket|y\s*chinh|"
+    r"noi\s*dung\s*chinh|on\s*tap|on\s*lai|diem\s*quan\s*trong",
     re.IGNORECASE,
 )
 
@@ -413,6 +442,7 @@ def compute(turns: list[Turn]) -> dict:
             "method": AUDIT_METHOD,
             "manual_exclusions": MANUAL_EXCLUSIONS,
             "sample_audit": SAMPLE_AUDIT,
+            "recall_audit": RECALL_AUDIT,
             "raw_matches_before_exclusion": {
                 "explicit_confusion": sum(
                     1 for t in turns if EXPLICIT_CONFUSION.search(t.student_text)
