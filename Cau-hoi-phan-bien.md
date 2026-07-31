@@ -108,6 +108,66 @@ Một hệ thống dùng lịch sử trò chuyện và dữ liệu học tập c
 
 ---
 
+### 11) Tại sao không làm luôn một chatbot để học viên hỏi đáp tự do, mà lại chọn làm note và mindmap?
+
+**Câu hỏi phản biện:**
+Chatbot có vẻ linh hoạt hơn và dễ gây ấn tượng hơn khi demo. Vì sao nhóm không chọn hướng đó?
+
+**Trả lời phản biện:**
+Vì học viên đã có AI Tutor để hỏi đáp trong lúc học rồi — thêm một chatbot nữa chỉ là làm lại việc đã có. Cái học viên đang thiếu là một bản tổng hợp sau khi kết thúc buổi học, để biết mình nên xem lại gì mà không phải đọc lại cả đoạn chat dài. Khảo sát cũng cho thấy học viên muốn có sẵn một bản gồm chủ đề đã học và phần cần xem lại, hơn là phải tiếp tục hỏi thêm.
+
+---
+
+### 12) Nếu học viên không tin gợi ý của AI thì sao, tính năng có còn ý nghĩa không?
+
+**Câu hỏi phản biện:**
+Học viên có thể thấy AI toàn nói "cần xác nhận", "chưa chắc chắn" rồi bỏ qua luôn, không dùng nữa. Nhóm có tính đến việc này không?
+
+**Trả lời phản biện:**
+Đây là rủi ro thật và nhóm chọn cách xử lý là cho học viên toàn quyền xác nhận, sửa hoặc bỏ qua từng gợi ý, thay vì bắt tin theo. Việc luôn ghi rõ gợi ý đến từ đâu (trỏ về đúng lượt hỏi, đúng trang slide) cũng giúp học viên tự kiểm tra được thay vì phải tin mù quáng. Nhóm chưa đo được mức độ tin tưởng thực tế của người dùng — việc này sẽ được kiểm ở bước cho người ngoài nhóm dùng thử.
+
+---
+
+### 13) Tính năng này có tốn kém khi triển khai thật không (ví dụ chi phí gọi AI)?
+
+**Câu hỏi phản biện:**
+Mỗi lần học viên bấm xem Learning Trace là một lần gọi AI thật, có tính phí. Nếu nhân với số lượng học viên và số buổi học, chi phí này có hợp lý không?
+
+**Trả lời phản biện:**
+Ở giai đoạn hiện tại, nhóm chưa tính toán chi phí vận hành ở quy mô lớn — đây đúng là việc cần làm trước khi nghĩ đến triển khai thật cho toàn khoá, không chỉ dừng ở việc "chạy được" trong prototype. Về nguyên tắc, chi phí này chỉ hợp lý nếu tính năng thực sự tiết kiệm được nhiều thời gian ôn tập hơn cho học viên so với chi phí bỏ ra, và đó là điều cần đo thêm chứ chưa thể khẳng định ngay.
+
+---
+
+### 14) Khi học viên sửa hoặc bỏ qua một gợi ý sai, hệ thống có ghi nhớ để lần sau không lặp lại lỗi đó không?
+
+**Câu hỏi phản biện:**
+Nếu AI gợi ý sai và học viên sửa lại, lần phân tích sau (buổi học khác) AI có "học" được từ lần sửa đó không, hay mỗi lần đều là một lần chạy độc lập không nhớ gì?
+
+**Trả lời phản biện:**
+Hiện tại mỗi lần phân tích là độc lập theo từng buổi học, không có cơ chế để hệ thống "nhớ" lại các lần học viên đã sửa trước đó và áp dụng cho lần sau. Việc sửa/xác nhận chỉ có tác dụng cập nhật ngay bản note và mindmap của buổi đang xem. Đây là một hướng có thể cải thiện sau này, nhưng không nằm trong phạm vi của bản hiện tại.
+
+---
+
+### 15) Có sản phẩm nào tương tự đã làm việc này chưa, hay đây là ý tưởng hoàn toàn mới?
+
+**Câu hỏi phản biện:**
+Việc tổng hợp lại lịch sử học tập thành ghi chú cá nhân nghe không phải là ý tưởng quá lạ. Đã có công cụ nào làm việc tương tự chưa?
+
+**Trả lời phản biện:**
+Có nhiều công cụ ghi chú/tóm tắt chung chung trên thị trường, nhưng điểm khác biệt ở đây là dữ liệu đầu vào là chính lịch sử hỏi–đáp thật của học viên đó với AI Tutor của khoá, không phải tài liệu tự tải lên. Vì vậy bản tổng hợp phản ánh đúng những gì người đó đã thực sự hỏi và tìm hiểu, thay vì một bản tóm tắt chung cho cả tài liệu. Đây không phải một công nghệ hoàn toàn mới, mà là áp dụng đúng vào một dữ liệu và một tình huống cụ thể của khoá học.
+
+---
+
+### 16) Làm sao biết được học viên có thực sự dùng tính năng này sau mỗi buổi học hay không?
+
+**Câu hỏi phản biện:**
+Có thể tính năng làm ra rất hay nhưng học viên lười bấm, hoặc quên mất là có tính năng này. Nhóm có cách nào để biết việc đó không?
+
+**Trả lời phản biện:**
+Ở mức prototype hiện tại, nhóm chưa đo được hành vi sử dụng thật qua thời gian, vì chưa triển khai cho học viên dùng thường xuyên. Việc kiểm tra gần nhất là cho một số người ngoài nhóm dùng thử và ghi lại phản hồi trực tiếp. Muốn biết học viên có thực sự quay lại dùng đều hay không thì cần chạy thật trong một khoảng thời gian dài hơn, đây là việc nằm ngoài phạm vi của giai đoạn hiện tại.
+
+---
+
 ## 2. Kết luận phản biện tổng hợp
 
 ### Điểm mạnh
