@@ -13,3 +13,5 @@ __pycache__/
 *.pyc
 
 plan-contract-llm.md
+# Next.js doc .env.local — pattern *.env KHONG bat duoc duoi .local
+.env*.local
