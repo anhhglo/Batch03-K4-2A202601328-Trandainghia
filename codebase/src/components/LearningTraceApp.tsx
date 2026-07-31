@@ -21,7 +21,6 @@ import {
 } from "lucide-react";
 import { ContextSidebar } from "@/components/ContextSidebar";
 import { DaySelector } from "@/components/DaySelector";
-import { DemoDataLab } from "@/components/DemoDataLab";
 import {
   EvidenceModal,
   type EvidenceDetail,
@@ -30,6 +29,7 @@ import { Header } from "@/components/Header";
 import { KnowledgeMindmap } from "@/components/KnowledgeMindmap";
 import { MetricCard } from "@/components/MetricCard";
 import { PersonalizedNote } from "@/components/PersonalizedNote";
+import { TutorSimulator } from "@/components/TutorSimulator";
 import {
   createDemoDayShell,
   createDemoSources,
@@ -38,15 +38,22 @@ import {
   day02DemoTrace,
 } from "@/data/day02-demo";
 import {
+  analyzeTutorSession,
+  TutorSimulatorApiError,
+} from "@/lib/ui/tutor-simulator-api";
+import {
   fetchLearningTraceAnalysis,
   LearningTraceApiError,
   mapAnalysisToDay,
 } from "@/lib/ui/learning-trace-adapter";
+import type { LearningTraceInput } from "@/lib/llm/learning-trace-contract";
 import type { LearningTrace, ReviewStatus } from "@/types/learning-trace";
 
 type AppPhase = "preview" | "analyzing" | "ready" | "empty" | "error";
 type ActiveTab = "note" | "mindmap";
-const SHOW_DEMO_DATA_LAB = process.env.NODE_ENV !== "production";
+type LastAnalysis =
+  | { kind: "input"; input: LearningTraceInput }
+  | { kind: "tutor-session"; conversationId: string };
 
 export function LearningTraceApp() {
   const [phase, setPhase] = useState<AppPhase>("preview");
@@ -56,6 +63,10 @@ export function LearningTraceApp() {
   const [activeDayId, setActiveDayId] = useState(day02DemoInput.dayCode);
   const [evidenceDetail, setEvidenceDetail] =
     useState<EvidenceDetail | null>(null);
+  const [lastAnalysis, setLastAnalysis] = useState<LastAnalysis>({
+    kind: "input",
+    input: day02DemoInput,
+  });
   const [statuses, setStatuses] = useState<Record<string, ReviewStatus>>(() =>
     Object.fromEntries(
       trace.days
@@ -77,40 +88,61 @@ export function LearningTraceApp() {
 
   const reviewCount = activeDay.reviewItems.length - confirmedCount;
 
+  const applyAnalysis = (
+    input: LearningTraceInput,
+    analysis: Awaited<ReturnType<typeof fetchLearningTraceAnalysis>>,
+    title?: string,
+  ) => {
+    const shell = {
+      ...createDemoDayShell(input),
+      ...(title ? { title } : {}),
+    };
+    const sources = createDemoSources(input);
+    setActiveDayId(shell.id);
+    setTrace(createDemoTrace(input));
+    const analyzedDay = mapAnalysisToDay(analysis, {
+      shell,
+      sources,
+      interactionCount: input.interactions.length,
+    });
+    setTrace((current) => ({
+      ...current,
+      days: current.days.map((day) =>
+        day.id === analyzedDay.id ? analyzedDay : day,
+      ),
+    }));
+    setStatuses((current) => {
+      const next = { ...current };
+      analyzedDay.reviewItems.forEach((item) => {
+        next[item.id] ??= "suggested";
+      });
+      return next;
+    });
+    setPhase(
+      analyzedDay.topics.length === 0 && analyzedDay.reviewItems.length === 0
+        ? "empty"
+        : "ready",
+    );
+    window.requestAnimationFrame(() => {
+      document.getElementById("learning-trace")?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+    });
+  };
+
   const startAnalysis = async (input = day02DemoInput) => {
     if (phase === "analyzing") return;
     setPhase("analyzing");
     setErrorMessage(null);
+    setLastAnalysis({ kind: "input", input });
     const shell = createDemoDayShell(input);
-    const sources = createDemoSources(input);
     setActiveDayId(shell.id);
     setTrace(createDemoTrace(input));
 
     try {
       const analysis = await fetchLearningTraceAnalysis(input);
-      const analyzedDay = mapAnalysisToDay(analysis, {
-        shell,
-        sources,
-        interactionCount: input.interactions.length,
-      });
-      setTrace((current) => ({
-        ...current,
-        days: current.days.map((day) =>
-          day.id === analyzedDay.id ? analyzedDay : day,
-        ),
-      }));
-      setStatuses((current) => {
-        const next = { ...current };
-        analyzedDay.reviewItems.forEach((item) => {
-          next[item.id] ??= "suggested";
-        });
-        return next;
-      });
-      setPhase(
-        analyzedDay.topics.length === 0 && analyzedDay.reviewItems.length === 0
-          ? "empty"
-          : "ready",
-      );
+      applyAnalysis(input, analysis);
     } catch (error) {
       setErrorMessage(
         error instanceof LearningTraceApiError
@@ -121,12 +153,60 @@ export function LearningTraceApp() {
     }
   };
 
+  const startTutorSessionAnalysis = async (conversationId: string) => {
+    if (phase === "analyzing") return;
+    setPhase("analyzing");
+    setErrorMessage(null);
+    setLastAnalysis({ kind: "tutor-session", conversationId });
+    try {
+      const response = await analyzeTutorSession(conversationId);
+      const displayInput: LearningTraceInput = {
+        learnerId: "U-DEMO-TUTOR",
+        conversationId: response.context.conversationId,
+        dayCode: response.context.dayCode,
+        interactions: response.context.interactions.map((interaction) => ({
+          ...interaction,
+          tutorAnswer: "",
+        })),
+        sources: response.context.sources,
+      };
+      applyAnalysis(displayInput, response.analysis, response.context.scenario.title);
+    } catch (error) {
+      setErrorMessage(
+        error instanceof TutorSimulatorApiError
+          ? error.message
+          : "Không thể tổng hợp Learning Trace. Vui lòng thử lại.",
+      );
+      setPhase("error");
+      window.requestAnimationFrame(() => {
+        document.getElementById("learning-trace")?.scrollIntoView({
+          behavior: "smooth",
+          block: "start",
+        });
+      });
+    }
+  };
+
+  const retryAnalysis = () => {
+    if (lastAnalysis.kind === "tutor-session") {
+      return startTutorSessionAnalysis(lastAnalysis.conversationId);
+    }
+    return startAnalysis(lastAnalysis.input);
+  };
+
+  const openTutorSimulator = () => {
+    document.getElementById("tutor-simulator")?.scrollIntoView({
+      behavior: "smooth",
+      block: "start",
+    });
+  };
+
   const openStudyMaterial = () => {
     setEvidenceDetail({
       eyebrow: "Học liệu đang mở",
       title: `${activeDay.label} · ${activeDay.title}`,
       description:
-        "Demo dùng transcript Day02 đã ẩn danh và chỉ hiển thị nguồn được cung cấp cho phiên phân tích.",
+        "Demo chỉ hiển thị nguồn được cấp cho session hiện tại; Tutor answer không phải học liệu chính thức.",
       meta: `${activeDay.slideCount} slide · ${activeDay.groundedSourceCount} nguồn đã đối chiếu`,
     });
   };
@@ -136,13 +216,11 @@ export function LearningTraceApp() {
       <Header />
 
       <main id="main-content">
-        {SHOW_DEMO_DATA_LAB ? (
-          <DemoDataLab
-            initialInput={day02DemoInput}
-            isRunning={phase === "analyzing"}
-            onRun={startAnalysis}
-          />
-        ) : null}
+        <TutorSimulator
+          isAnalyzing={phase === "analyzing"}
+          analysisComplete={phase === "ready" || phase === "empty"}
+          onAnalyze={startTutorSessionAnalysis}
+        />
         <section className="border-b border-[#dce4ee] bg-white">
           <div className="mx-auto flex max-w-[1480px] flex-col gap-7 px-4 py-8 sm:px-6 lg:flex-row lg:items-center lg:justify-between lg:px-8 lg:py-10">
             <div className="max-w-3xl">
@@ -155,7 +233,7 @@ export function LearningTraceApp() {
                 </h1>
                 <span className="inline-flex items-center gap-1.5 rounded-full bg-[#edf3fb] px-3 py-1.5 text-xs font-bold text-[#2e5596]">
                   <Sparkles aria-hidden="true" className="h-3.5 w-3.5" />
-                  AI thật · Day02
+                  AI Tutor → Learning Trace
                 </span>
               </div>
               <p className="mt-3 max-w-2xl text-base leading-7 text-[#687790]">
@@ -181,34 +259,15 @@ export function LearningTraceApp() {
                 <BookOpen aria-hidden="true" className="h-[18px] w-[18px]" />
                 Mở học liệu
               </button>
-              {phase !== "ready" ? (
-                <button
-                  type="button"
-                  onClick={() => void startAnalysis()}
-                  disabled={phase === "analyzing"}
-                  className="inline-flex min-h-12 items-center justify-center gap-2 rounded-[14px] bg-[#2e5596] px-5 text-sm font-extrabold text-white shadow-[0_8px_20px_rgba(46,85,150,0.22)] transition-all hover:-translate-y-0.5 hover:bg-[#244a84] hover:shadow-[0_10px_24px_rgba(46,85,150,0.28)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2e5596] disabled:cursor-wait disabled:opacity-70 disabled:hover:translate-y-0"
-                >
-                  {phase === "analyzing" ? (
-                    <span
-                      aria-hidden="true"
-                      className="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white"
-                    />
-                  ) : (
-                    <BrainCircuit aria-hidden="true" className="h-[18px] w-[18px]" />
-                  )}
-                  {phase === "analyzing"
-                    ? "Đang tổng hợp..."
-                    : "Xem Learning Trace"}
-                  {phase === "preview" ? (
-                    <ArrowRight aria-hidden="true" className="h-4 w-4" />
-                  ) : null}
-                </button>
-              ) : (
-                <span className="inline-flex min-h-12 items-center justify-center gap-2 rounded-[14px] bg-[#eaf7f2] px-5 text-sm font-extrabold text-[#17775d]">
-                  <CheckCircle2 aria-hidden="true" className="h-[18px] w-[18px]" />
-                  Đã tổng hợp
-                </span>
-              )}
+              <button
+                type="button"
+                onClick={openTutorSimulator}
+                className="inline-flex min-h-12 items-center justify-center gap-2 rounded-[14px] bg-[#2e5596] px-5 text-sm font-extrabold text-white shadow-[0_8px_20px_rgba(46,85,150,0.22)] transition-all hover:-translate-y-0.5 hover:bg-[#244a84] hover:shadow-[0_10px_24px_rgba(46,85,150,0.28)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2e5596]"
+              >
+                <BrainCircuit aria-hidden="true" className="h-[18px] w-[18px]" />
+                Chat với AI Tutor
+                <ArrowRight aria-hidden="true" className="h-4 w-4" />
+              </button>
             </div>
           </div>
         </section>
@@ -292,11 +351,11 @@ export function LearningTraceApp() {
                       </p>
                       <button
                         type="button"
-                        onClick={() => void startAnalysis()}
+                        onClick={openTutorSimulator}
                         className="mt-5 inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-[#2e5596] px-4 text-sm font-extrabold text-white transition-colors hover:bg-[#244a84] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2e5596]"
                       >
                         <BrainCircuit aria-hidden="true" className="h-4 w-4" />
-                        Xem Learning Trace
+                        Bắt đầu chat với Tutor
                       </button>
                     </div>
                   </div>
@@ -395,7 +454,7 @@ export function LearningTraceApp() {
                 </p>
                 <button
                   type="button"
-                  onClick={() => void startAnalysis()}
+                  onClick={() => void retryAnalysis()}
                   className="mt-5 inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-[#2e5596] px-4 text-sm font-extrabold text-white transition-colors hover:bg-[#244a84] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2e5596]"
                 >
                   <RefreshCw aria-hidden="true" className="h-4 w-4" />

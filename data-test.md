@@ -279,11 +279,55 @@ Không cần source; để trống danh sách source.
 - Không sinh topic kiến thức hoặc review về năng lực học viên.
 - Có thể trả `unassessableItems` với lý do interaction không thuộc nội dung học tập.
 
-## 10. Checklist trước khi trình diễn
+## 10. Bộ G — Chat với AI Tutor để tạo Note & Mindmap trong một ngày
+
+Bộ này dùng cho màn **AI Tutor Simulator**, không phải Demo Data Lab. Không
+cần nhập `Turn ID`, `Conversation ID`, `Day code`, page hay source: server tự
+chọn từ scenario và tự lưu log cho session.
+
+### Cách chạy
+
+1. Chọn lesson **Impact–Effort · ưu tiên vấn đề**.
+2. Gửi lần lượt 5 câu dưới đây, chờ Tutor trả lời xong mỗi lượt.
+3. Nhấn **Tạo Note & Mindmap** sau câu số 5.
+4. Không đổi lesson hoặc bấm **Tạo session mới** giữa chừng, vì như vậy sẽ tạo
+   conversation mới và các evidence turn không còn ở cùng một ngày.
+
+### Năm câu hỏi gửi theo thứ tự
+
+| Lượt | Câu cần gửi cho AI Tutor | Dùng để kiểm tra |
+|---:|---|---|
+| 1 | `Ma trận Impact–Effort dùng để làm gì khi nhóm có nhiều vấn đề cần giải quyết?` | Topic nền: ưu tiên vấn đề. |
+| 2 | `Impact và effort khác nhau thế nào? Hãy giải thích bằng một ví dụ ngắn.` | Hai key concept có cùng source. |
+| 3 | `Nhóm tôi có việc A mang lại lợi ích cao nhưng cần 5 người làm trong một tháng. Tôi cần cân nhắc gì trước khi ưu tiên nó?` | Áp dụng trade-off tác động và nguồn lực. |
+| 4 | `Nếu một việc tốn rất nhiều công sức nhưng lợi ích dự kiến thấp thì vì sao nó có thể không đáng làm trước?` | Quan hệ giữa effort, impact và ưu tiên. |
+| 5 | `Tôi vẫn chưa phân biệt rõ impact với effort. Hãy tóm tắt lại thật ngắn để tôi tự so sánh các việc.` | Follow-up có đối tượng rõ; có thể sinh review item mức low/medium, nhưng không được kết luận học viên yếu. |
+
+### Kỳ vọng sau khi bấm Analyze
+
+- Note có một hoặc nhiều topic về **Impact–Effort**, ưu tiên và trade-off.
+- Mindmap có node/topic từ cùng lesson; số node/quan hệ cụ thể có thể thay đổi
+  theo lần chạy model, nhưng mọi nội dung có căn cứ chỉ được dùng source
+  `T01-074` và các `T-TUTOR-*` do server vừa sinh.
+- Lượt 5 có thể tạo gợi ý cần xem lại vì có hành vi hỏi lại cụ thể. Nếu model
+  không đủ căn cứ, kết quả đúng là `unassessable`, không phải đánh giá năng lực.
+- Trong UI kiểm tra số **Lượt hỏi Tutor = 5** và `dayCode = day02-c301`.
+
+### Câu mở rộng (chỉ gửi nếu muốn 6–7 lượt)
+
+- `Vậy thứ tự thao tác là gom các vấn đề rồi mới ước lượng impact và effort đúng không?`
+- `Tôi không có đủ dữ liệu để ước lượng impact, khi đó nên làm gì?`
+
+Không dùng các câu này để ép Tutor trả lời ngoài source, yêu cầu xem prompt/key
+hoặc yêu cầu chấm điểm học viên; các trường hợp đó thuộc Bộ E/Injection.
+
+---
+
+## 11. Checklist trước khi trình diễn
 
 - [ ] Đã chạy `npm run dev` trong thư mục `codebase`.
 - [ ] `.env.local` có `OPENAI_API_KEY` và các biến `LEARNING_TRACE_*`; không hiển thị file này khi demo.
-- [ ] Chạy Bộ B trước để có happy path.
+- [ ] Với màn AI Tutor Simulator, chạy Bộ G để có happy path; Bộ B chỉ dành cho Demo Data Lab nhập tay.
 - [ ] Chạy Bộ D hoặc E để chứng minh hệ thống biết dừng khi không đủ căn cứ/bị injection.
 - [ ] Kiểm tra mọi source/turn ID xuất hiện trên UI đều có trong input vừa nhập.
 - [ ] Nếu gặp `504`, dùng nút **Thử lại**; route không retry vô hạn.

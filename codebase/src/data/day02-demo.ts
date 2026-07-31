@@ -64,7 +64,9 @@ export function createDemoDayShell(
     label,
     title: "Learning Trace thử nghiệm",
     statusLabel: "Sẵn sàng tổng hợp",
-    slideCount: 29,
+    slideCount: input.interactions.some((interaction) => Boolean(interaction.page))
+      ? 29
+      : 0,
   };
 }
 
