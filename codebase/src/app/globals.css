@@ -139,8 +139,8 @@ button:disabled {
 .mindmap-branches::before {
   position: absolute;
   top: -32px;
-  right: calc(16.666% - 2px);
-  left: calc(16.666% - 2px);
+  right: calc(var(--mindmap-rail-inset, 16.666%) - 2px);
+  left: calc(var(--mindmap-rail-inset, 16.666%) - 2px);
   height: 2px;
   background: #b9c9dc;
   content: "";
@@ -200,6 +200,108 @@ button:disabled {
 .mindmap-topic-red {
   border-color: #ebcdcd;
   color: #bd3b3b;
+}
+
+/*
+ * Key concept là các nhánh anh em nên toả ngang dưới chủ đề, không xếp thành
+ * chuỗi dọc — xếp dọc sẽ đọc thành các bước nối tiếp nhau, sai ý nghĩa.
+ */
+.mindmap-subbranches {
+  position: relative;
+  display: grid;
+  width: 100%;
+  gap: 16px;
+  margin-top: 60px;
+}
+
+/*
+ * Node trạng thái chỉ xuất hiện khi có gợi ý ôn tập hoặc liên kết có căn cứ,
+ * nên đoạn nối dưới node chủ đề phải theo được cả hai trường hợp.
+ */
+.mindmap-branch:not(:has(.mindmap-child)):not(:has(.mindmap-subbranches))
+  .mindmap-topic::after {
+  display: none;
+}
+
+.mindmap-branch:not(:has(.mindmap-child)):has(.mindmap-subbranches)
+  .mindmap-topic::after {
+  bottom: -30px;
+  height: 30px;
+}
+
+/* Nối từ node trạng thái xuống thanh ngang của các nhánh con. */
+.mindmap-branch:has(.mindmap-subbranches) .mindmap-child::after {
+  position: absolute;
+  bottom: -30px;
+  left: 50%;
+  width: 2px;
+  height: 30px;
+  background: #c3d1e1;
+  content: "";
+  transform: translateX(-50%);
+}
+
+.mindmap-subbranches::before {
+  position: absolute;
+  top: -30px;
+  right: calc(var(--mindmap-rail-inset, 25%) - 2px);
+  left: calc(var(--mindmap-rail-inset, 25%) - 2px);
+  height: 2px;
+  background: #c3d1e1;
+  content: "";
+}
+
+.mindmap-subbranch {
+  position: relative;
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  align-items: center;
+}
+
+.mindmap-subbranch::before {
+  position: absolute;
+  top: -30px;
+  left: 50%;
+  width: 2px;
+  height: 30px;
+  background: #c3d1e1;
+  content: "";
+  transform: translateX(-50%);
+}
+
+/*
+ * Mỗi key concept là đúng một node: tiêu đề ngắn kèm một dòng nội dung đã rút
+ * gọn. Không nổ tiếp thành lá — đó là thứ làm bản đồ vỡ vụn.
+ */
+.mindmap-concept {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  max-width: 215px;
+  border: 1px solid #c8d8ea;
+  border-radius: 13px;
+  background: #fff;
+  padding: 10px 12px;
+  text-align: center;
+  box-shadow: 0 6px 15px rgba(24, 54, 91, 0.06);
+}
+
+.mindmap-concept strong {
+  display: block;
+  color: #10213d;
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 1.35;
+}
+
+.mindmap-concept span {
+  display: block;
+  margin-top: 4px;
+  color: #61718a;
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 1.45;
 }
 
 .mindmap-child {

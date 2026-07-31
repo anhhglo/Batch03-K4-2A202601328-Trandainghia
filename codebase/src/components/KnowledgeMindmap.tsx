@@ -8,6 +8,12 @@ import {
   Target,
   Workflow,
 } from "lucide-react";
+import {
+  condenseToNodeText,
+  MINDMAP_MAX_FALLBACK_NODES,
+  splitIntoNodeText,
+  stripParentContext,
+} from "@/lib/ui/learning-trace-adapter";
 import type {
   LearningDay,
   ReviewStatus,
@@ -20,6 +26,46 @@ interface KnowledgeMindmapProps {
 }
 
 const branchIcons = [Target, Workflow, Lightbulb];
+
+interface SubBranch {
+  id: string;
+  title: string;
+  detail: string;
+}
+
+/**
+ * One node per key concept — never more.
+ *
+ * Key concepts are siblings, so they fan out under the topic instead of
+ * chaining downward. Each carries its own condensed line inside the node
+ * rather than spilling into a column of leaves: that spill is what shattered
+ * the map into fragments, and the full wording already lives on the
+ * Personalized Note tab.
+ *
+ * Node count therefore tracks how many distinct ideas the analyzer grounded,
+ * which in practice lands near the number of things the learner asked about.
+ */
+function toSubBranches(topic: Topic): SubBranch[] {
+  const keyConcepts = topic.keyConcepts ?? [];
+  if (keyConcepts.length > 0) {
+    return keyConcepts.map((concept) => ({
+      id: concept.id,
+      // The parent node already supplies the shared context; don't repeat it.
+      title: condenseToNodeText(stripParentContext(concept.title, topic.title)),
+      detail: condenseToNodeText(concept.summary),
+    }));
+  }
+
+  // No key concepts: fall back to the topic summary, capped so a single long
+  // summary cannot fan out into a wall of nodes.
+  return splitIntoNodeText(topic.summary)
+    .slice(0, MINDMAP_MAX_FALLBACK_NODES)
+    .map((part, index) => ({
+      id: `${topic.id}-summary-${index}`,
+      title: part,
+      detail: "",
+    }));
+}
 
 export function KnowledgeMindmap({
   day,
@@ -60,9 +106,11 @@ export function KnowledgeMindmap({
       ) : null}
 
       <div
-        className={`mindmap-canvas mt-5 overflow-hidden rounded-[20px] border border-[#dce4ee] bg-[#f8fbfe] px-5 py-8 ${
+        className={`mindmap-canvas mt-5 rounded-[20px] border border-[#dce4ee] bg-[#f8fbfe] px-5 py-8 ${
           day.topics.length === 0 ? "hidden" : "hidden md:block"
         }`}
+        // Cây toả ngang có thể rộng hơn khung; cho cuộn thay vì cắt mất nhánh.
+        style={{ overflowX: "auto" }}
       >
         <div className="mindmap-root">
           <span className="mindmap-root-icon">
@@ -78,6 +126,11 @@ export function KnowledgeMindmap({
           className="mindmap-branches"
           style={{
             gridTemplateColumns: `repeat(${day.topics.length}, minmax(0, 1fr))`,
+            // The horizontal rail must stop at the centre of the outer columns,
+            // whatever the column count. Hardcoding it assumed three branches.
+            ["--mindmap-rail-inset" as string]: `calc(100% / ${
+              day.topics.length * 2
+            })`,
           }}
         >
           {day.topics.map((topic, index) => {
@@ -88,6 +141,9 @@ export function KnowledgeMindmap({
               : null;
             const confirmed = reviewStatus === "confirmed";
             const needsReview = reviewStatus === "review";
+            const subBranches = toSubBranches(topic);
+            // Only a real review item or a grounded relationship earns a node.
+            const statusNode = reviewItem?.title ?? topic.mindmapChild;
 
             return (
               <div className="mindmap-branch" key={topic.id}>
@@ -104,36 +160,60 @@ export function KnowledgeMindmap({
                     <strong>{topic.title}</strong>
                   </span>
                 </div>
-                <div
-                  className={`mindmap-child ${
-                    reviewItem
-                      ? confirmed
-                        ? "mindmap-child-confirmed"
-                        : "mindmap-child-review"
-                      : "mindmap-child-neutral"
-                  }`}
-                  data-review-item={reviewItem?.id}
-                >
-                  {reviewItem ? (
-                    confirmed ? (
-                      <CheckCircle2 aria-hidden="true" className="h-4 w-4" />
-                    ) : (
-                      <CircleHelp aria-hidden="true" className="h-4 w-4" />
-                    )
-                  ) : null}
-                  <span>
-                    {reviewItem?.title ?? topic.mindmapChild}
-                    <small>
-                      {reviewItem
+
+                {statusNode ? (
+                  <div
+                    className={`mindmap-child ${
+                      reviewItem
                         ? confirmed
-                          ? "Đã xác nhận"
-                          : needsReview
-                            ? "Đã lưu để ôn"
-                            : "Cần xác nhận"
-                        : "Đã tìm hiểu"}
-                    </small>
-                  </span>
-                </div>
+                          ? "mindmap-child-confirmed"
+                          : "mindmap-child-review"
+                        : "mindmap-child-neutral"
+                    }`}
+                    data-review-item={reviewItem?.id}
+                  >
+                    {reviewItem ? (
+                      confirmed ? (
+                        <CheckCircle2 aria-hidden="true" className="h-4 w-4" />
+                      ) : (
+                        <CircleHelp aria-hidden="true" className="h-4 w-4" />
+                      )
+                    ) : null}
+                    <span>
+                      {statusNode}
+                      <small>
+                        {reviewItem
+                          ? confirmed
+                            ? "Đã xác nhận"
+                            : needsReview
+                              ? "Đã lưu để ôn"
+                              : "Cần xác nhận"
+                          : "Liên kết có căn cứ"}
+                      </small>
+                    </span>
+                  </div>
+                ) : null}
+
+                {subBranches.length > 0 ? (
+                  <div
+                    className="mindmap-subbranches"
+                    style={{
+                      gridTemplateColumns: `repeat(${subBranches.length}, minmax(0, 1fr))`,
+                      ["--mindmap-rail-inset" as string]: `calc(100% / ${
+                        subBranches.length * 2
+                      })`,
+                    }}
+                  >
+                    {subBranches.map((branch) => (
+                      <div className="mindmap-subbranch" key={branch.id}>
+                        <div className="mindmap-concept">
+                          <strong>{branch.title}</strong>
+                          {branch.detail ? <span>{branch.detail}</span> : null}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : null}
               </div>
             );
           })}
@@ -159,7 +239,30 @@ export function KnowledgeMindmap({
               <p className="text-sm font-extrabold text-[#10213d]">
                 {topic.title}
               </p>
-              <div className="mt-2 flex items-center justify-between gap-3 rounded-xl bg-[#f4f7fb] px-3 py-2.5">
+              {toSubBranches(topic).length > 0 ? (
+                <ul className="mt-2.5 grid gap-2.5">
+                  {toSubBranches(topic).map((branch) => (
+                    <li
+                      key={branch.id}
+                      className="border-l-2 border-[#c8d8ea] pl-3"
+                    >
+                      <p className="text-xs font-extrabold text-[#243955]">
+                        {branch.title}
+                      </p>
+                      {branch.detail ? (
+                        <p className="mt-1 text-xs leading-5 text-[#71809a]">
+                          {branch.detail}
+                        </p>
+                      ) : null}
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
+              <div
+                className={`mt-3 flex items-center justify-between gap-3 rounded-xl bg-[#f4f7fb] px-3 py-2.5 ${
+                  reviewItem || topic.mindmapChild ? "" : "hidden"
+                }`}
+              >
                 <span className="text-sm text-[#566983]">
                   {reviewItem?.title ?? topic.mindmapChild}
                 </span>

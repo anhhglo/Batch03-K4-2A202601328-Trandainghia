@@ -2,6 +2,13 @@ export type ReviewStatus = "suggested" | "confirmed" | "review";
 
 export type ConfidenceLevel = "medium" | "low";
 
+/** One grounded sub-point of a topic; rendered as a mindmap leaf. */
+export interface KeyConcept {
+  id: string;
+  title: string;
+  summary: string;
+}
+
 export interface Topic {
   id: string;
   title: string;
@@ -10,6 +17,8 @@ export interface Topic {
   transcript: string;
   learnedLabel: string;
   mindmapChild: string;
+  /** Optional: demo fixtures predate key concepts, analyzed days always set it. */
+  keyConcepts?: KeyConcept[];
 }
 
 export interface ReviewItem {
