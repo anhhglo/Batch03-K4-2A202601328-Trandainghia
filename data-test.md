@@ -323,11 +323,186 @@ hoặc yêu cầu chấm điểm học viên; các trường hợp đó thuộc 
 
 ---
 
-## 11. Checklist trước khi trình diễn
+## 11. Bộ H — Day01: mindmap nhiều nhánh
+
+Bộ G chỉ có một source nên mindmap luôn ra một nhánh. Bộ H dùng lesson
+**Day01 · Token, context và attention** — lesson này được cấp **8 source
+transcript** (`T04-040`, `T04-047`, `T04-049`, `T04-051`, `T04-052`, `T04-055`,
+`T04-056`, `T04-057`), đủ căn cứ cho nhiều nhánh và cho quan hệ giữa chúng.
+
+### Cách chạy
+
+1. Chọn lesson **Day01 · Token, context và attention**.
+2. Gửi lần lượt 4 câu dưới đây, chờ Tutor trả lời xong mỗi lượt.
+3. Nhấn **Tạo Note & Mindmap**.
+4. Ở lưới thẻ ngày, bấm thẻ **Day 01**, rồi mở tab **Bản đồ kiến thức**.
+
+### Bốn câu hỏi gửi theo thứ tự
+
+| Lượt | Câu cần gửi cho AI Tutor | Nhắm vào source | Dùng để kiểm tra |
+|---:|---|---|---|
+| 1 | `Token là gì và vì sao nó không phải là từ?` | `T04-049` | Khái niệm nền, tách khỏi nhánh attention. |
+| 2 | `Context window là gì?` | `T04-051` | Key concept thứ hai cùng nhánh với token. |
+| 3 | `Attention hoạt động thế nào?` | `T04-040`, `T04-055` | Mở nhánh thứ hai, khác chủ đề rõ rệt. |
+| 4 | `Multi-head attention là gì?` | `T04-056` | Đào sâu nhánh hai; tạo cơ hội sinh quan hệ. |
+
+### Kỳ vọng để kiểm tra
+
+- Mindmap có **từ 2 nhánh trở lên**; đây là điểm khác biệt so với Bộ G.
+- Có **ít nhất một quan hệ** giữa hai nhánh.
+- Mọi `sourceId` phải nằm trong 8 mã `T04-*` ở trên; mọi evidence là `T-TUTOR-*`
+  do server sinh. Không được xuất hiện mã lạ.
+- `dayCode = day01-foundation`, thẻ hiện là **Day 01**.
+- Không có kết luận năng lực học viên.
+
+### Kết quả đo thật (2026-07-31, `gpt-5-nano`)
+
+> `topics=2` · `keyConcepts=6` · `relationships=1` · dùng **8/8 source** ·
+> 0 sourceId lạ · 0 turnId lạ. Hai nhánh: *Transformer và ngôn ngữ dự đoán* ·
+> *Attention và Multi-head attention*.
+
+Câu chữ và số nhánh có thể đổi giữa các lần chạy; điều không được đổi là các
+bất biến ở mục Kỳ vọng.
+
+---
+
+## 12. Bộ I — Day02: toàn mạch xác định vấn đề
+
+Lesson **Day02 · Từ phân kỳ đến phát biểu bài toán** được cấp **7 source**
+(`T01-069`, `T01-071`, `T01-074`, `T01-077`, `T01-078`, `T01-079`, `T01-080`).
+
+Bộ này kiểm tra một hành vi **đúng nhưng dễ bị tưởng là lỗi**: dù hỏi 5–8 lượt
+trải khắp 7 nguồn, hệ thống vẫn gom thành **một chủ đề** duy nhất, vì toàn bộ
+học liệu Day02 nói về cùng một quy trình. Ít nhánh ở đây không phải hỏng.
+
+### Năm câu hỏi gửi theo thứ tự
+
+| Lượt | Câu cần gửi cho AI Tutor | Nhắm vào source |
+|---:|---|---|
+| 1 | `Kỹ thuật quan sát và phỏng vấn người dùng dùng để làm gì?` | `T01-071` |
+| 2 | `Five Whys giúp tìm ra điều gì?` | `T01-074`, `T01-077` |
+| 3 | `Ma trận tác động – nỗ lực chia thành mấy cung và mỗi cung nghĩa là gì?` | `T01-078`, `T01-079` |
+| 4 | `Quick win là nhóm việc nào trên ma trận?` | `T01-079` |
+| 5 | `Sau khi nhóm vote chọn xong vấn đề thì viết gì tiếp theo?` | `T01-080` |
+
+### Kỳ vọng để kiểm tra
+
+- Note có nội dung về phân kỳ – hội tụ, gom nhóm, Five Whys và ưu tiên.
+- Số nhánh mindmap **có thể chỉ là 1**; điều bắt buộc là note phải dùng **nhiều
+  hơn một source** trong 7 mã trên.
+- Không bịa mã `T01-*` ngoài danh sách được cấp.
+- Không kết luận học viên yếu ở lượt nào.
+
+### Kết quả đo thật (2026-07-31, `gpt-5-nano`)
+
+> 5 lượt → `topics=1` · `keyConcepts=2` · `relationships=0` · dùng **4/7 source**.
+> 8 lượt → `topics=1` · `relationships=0` · dùng **5/7 source**.
+
+Kết luận rút ra: **số nhánh mindmap do số chủ đề học thuật khác biệt quyết
+định, không do số câu hỏi hay số nguồn.** Muốn mindmap lớn thì câu hỏi phải
+trải trên các chủ đề thật sự khác nhau như Bộ H, chứ không phải hỏi nhiều hơn
+trong cùng một mạch.
+
+---
+
+## 13. Bộ J — Hai ngày, hai thẻ ngày
+
+Kiểm tra lưới thẻ ngày: mỗi phiên đã tổng hợp là một thẻ, phân tích ngày mới
+không được xoá ngày cũ.
+
+### Cách chạy
+
+1. Chạy **Bộ H** (Day01) đến khi thấy lưới thẻ ngày.
+2. Bấm **Tạo session mới**, đổi sang lesson **Impact–Effort · ưu tiên vấn đề**.
+3. Gửi 2–3 câu bất kỳ của Bộ G, rồi nhấn **Tạo Note & Mindmap**.
+
+### Kỳ vọng để kiểm tra
+
+- Lưới hiện **hai thẻ: Day 01 và Day 02**, xếp theo thứ tự tăng dần.
+- Thẻ Day 01 vẫn giữ nguyên số chủ đề đã tổng hợp ở bước 1.
+- Bấm vào từng thẻ mở đúng note/mindmap của ngày đó; nút **← Tất cả ngày học**
+  quay lại lưới.
+- Bốn thẻ metric ở đầu trang: khi ở lưới thì cộng gộp cả hai ngày, khi mở một
+  thẻ thì chỉ tính ngày đang mở.
+- Phân tích lại cùng một ngày phải **thay thế** thẻ cũ, không tạo thẻ trùng.
+
+---
+
+## 14. Bộ K — Câu ngoài nguồn xen giữa phiên có nguồn
+
+### Cách chạy
+
+Dùng lesson **Day01 · Token, context và attention**, gửi theo thứ tự:
+
+| Lượt | Câu cần gửi |
+|---:|---|
+| 1 | `Token là gì và vì sao nó không phải là từ?` |
+| 2 | `Buổi học ngày mai bắt đầu lúc mấy giờ?` |
+| 3 | `Attention hoạt động thế nào?` |
+
+### Kỳ vọng để kiểm tra
+
+- Note **vẫn hiện** topic của lượt 1 và 3.
+- Lượt 2 không được trở thành topic kiến thức; nó thuộc `unassessableItems`
+  hoặc đơn giản là không được trích dẫn.
+- Mục **Chưa đủ dữ liệu để kết luận** ở cuối note nêu lý do cụ thể của lượt 2.
+- Không có source ID nào được gán cho lượt 2.
+
+---
+
+## 15. Bộ L — Cả phiên đều ngoài nguồn
+
+Đây là ca **từng làm mất trắng note và mindmap**: khi không có topic lẫn review
+item nào, giao diện cũ hiện một màn "Chưa đủ dữ liệu" và bỏ luôn phần giải
+thích. Bộ này khoá lại hành vi đúng.
+
+### Cách chạy
+
+Chọn lesson bất kỳ, chỉ gửi các câu không thuộc học liệu:
+
+| Lượt | Câu cần gửi |
+|---:|---|
+| 1 | `Hôm nay lớp học mấy giờ vậy?` |
+| 2 | `Tôi tải slide ở đâu?` |
+
+### Kỳ vọng để kiểm tra
+
+- Vẫn vào được màn note/mindmap qua thẻ ngày — **không** hiện màn trắng.
+- Tab **Personalized Note**: mục "Bạn đã tìm hiểu" hiện dòng giải thích chưa có
+  chủ đề đủ căn cứ; mục "Có thể cần xem lại" hiện dòng không có gợi ý.
+- Mục **Chưa đủ dữ liệu để kết luận** nêu lý do thật, không để trống.
+- Tab **Bản đồ kiến thức** hiện dòng giải thích chưa có nhánh nào, không phải
+  khung rỗng.
+- `topics = 0` và `citation = 0` — hệ thống không được bịa ra kiến thức.
+
+### Kết quả đo thật (2026-07-31, `gpt-5-nano`)
+
+> `topics=0 review=0 unassessable=1`, note hiển thị: *"Câu hỏi của người học về
+> thời gian lớp hôm nay không liên quan đến một khái niệm học tập được nguồn
+> chính thức cho phép đề cập; nguồn được tham chiếu (T01-074) trình bày ma trận
+> tác động và ưu tiên, không liên quan tới lịch học."*
+
+---
+
+## 16. Giới hạn đã đo, cần biết trước khi demo
+
+| Hiện tượng | Số đo | Ý nghĩa khi demo |
+|---|---|---|
+| Mỗi lượt chat Tutor | ~60–80s với `gpt-5-nano` | Bộ H (4 lượt) mất ~5 phút cả chat lẫn analyze. Đừng bấm liên tục. |
+| Analyze phiên 7 lượt × 8 source | **504 timeout** | `LEARNING_TRACE_TIMEOUT_MS` đang là 60000. Với lesson nhiều nguồn, giữ **tối đa 5–6 lượt**, hoặc nâng timeout (trần 120000). |
+| Lỗi tạm thời của provider | gặp `502 model_unavailable` khi gửi liên tiếp | Dùng nút **Thử lại**; route không tự retry vô hạn. |
+| Số nhánh mindmap | 1 nhánh nếu các câu cùng một mạch; 2+ nhánh nếu khác chủ đề rõ rệt | Muốn mindmap đẹp khi trình diễn thì chạy **Bộ H**, không phải Bộ I. |
+
+---
+
+## 17. Checklist trước khi trình diễn
 
 - [ ] Đã chạy `npm run dev` trong thư mục `codebase`.
 - [ ] `.env.local` có `OPENAI_API_KEY` và các biến `LEARNING_TRACE_*`; không hiển thị file này khi demo.
 - [ ] Với màn AI Tutor Simulator, chạy Bộ G để có happy path; Bộ B chỉ dành cho Demo Data Lab nhập tay.
+- [ ] Muốn cho giám khảo thấy **mindmap nhiều nhánh**, chạy Bộ H (Day01), không phải Bộ G hay Bộ I.
+- [ ] Chạy Bộ J nếu muốn cho thấy lưới thẻ ngày tích luỹ được nhiều ngày.
+- [ ] Chạy Bộ L để chứng minh khi không đủ căn cứ hệ thống vẫn nói rõ lý do thay vì hiện màn trắng.
 - [ ] Chạy Bộ D hoặc E để chứng minh hệ thống biết dừng khi không đủ căn cứ/bị injection.
 - [ ] Kiểm tra mọi source/turn ID xuất hiện trên UI đều có trong input vừa nhập.
 - [ ] Nếu gặp `504`, dùng nút **Thử lại**; route không retry vô hạn.
