@@ -29,13 +29,16 @@ import { Header } from "@/components/Header";
 import { KnowledgeMindmap } from "@/components/KnowledgeMindmap";
 import { MetricCard } from "@/components/MetricCard";
 import { PersonalizedNote } from "@/components/PersonalizedNote";
-import { mockLearningTrace } from "@/data/mock-learning-trace";
 import {
+  day02DemoDayShell,
+  day02DemoInput,
+  day02DemoSources,
+  day02DemoTrace,
+} from "@/data/day02-demo";
+import {
+  fetchLearningTraceAnalysis,
+  LearningTraceApiError,
   mapAnalysisToDay,
-  mockDay02Analysis,
-  mockDay02InteractionCount,
-  mockDay02Shell,
-  mockDay02Sources,
 } from "@/lib/ui/learning-trace-adapter";
 import type { LearningTrace, ReviewStatus } from "@/types/learning-trace";
 
@@ -44,10 +47,10 @@ type ActiveTab = "note" | "mindmap";
 
 export function LearningTraceApp() {
   const [phase, setPhase] = useState<AppPhase>("preview");
-  const [trace, setTrace] = useState<LearningTrace>(mockLearningTrace);
+  const [trace, setTrace] = useState<LearningTrace>(day02DemoTrace);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<ActiveTab>("note");
-  const [activeDayId, setActiveDayId] = useState("day-02");
+  const [activeDayId, setActiveDayId] = useState(day02DemoDayShell.id);
   const [evidenceDetail, setEvidenceDetail] =
     useState<EvidenceDetail | null>(null);
   const [statuses, setStatuses] = useState<Record<string, ReviewStatus>>(() =>
@@ -71,41 +74,45 @@ export function LearningTraceApp() {
 
   const reviewCount = activeDay.reviewItems.length - confirmedCount;
 
-  const startAnalysis = () => {
+  const startAnalysis = async () => {
     if (phase === "analyzing") return;
     setPhase("analyzing");
     setErrorMessage(null);
-    // Phase 1: mock fixture stands in for the LLM analyzer response, but it
-    // runs through the same mapAnalysisToDay() pipeline Phase 2's real
-    // fetchLearningTraceAnalysis() result will go through.
-    window.setTimeout(() => {
-      try {
-        const analyzedDay02 = mapAnalysisToDay(mockDay02Analysis, {
-          shell: mockDay02Shell,
-          sources: mockDay02Sources,
-          interactionCount: mockDay02InteractionCount,
+
+    try {
+      const analysis = await fetchLearningTraceAnalysis(day02DemoInput);
+      const analyzedDay02 = mapAnalysisToDay(analysis, {
+        shell: day02DemoDayShell,
+        sources: day02DemoSources,
+        interactionCount: day02DemoInput.interactions.length,
+      });
+      setTrace((current) => ({
+        ...current,
+        days: current.days.map((day) =>
+          day.id === analyzedDay02.id ? analyzedDay02 : day,
+        ),
+      }));
+      setStatuses((current) => {
+        const next = { ...current };
+        analyzedDay02.reviewItems.forEach((item) => {
+          next[item.id] ??= "suggested";
         });
-        setTrace((current) => ({
-          ...current,
-          days: current.days.map((day) =>
-            day.id === analyzedDay02.id ? analyzedDay02 : day,
-          ),
-        }));
-        setPhase(
-          analyzedDay02.topics.length === 0 &&
-            analyzedDay02.reviewItems.length === 0
-            ? "empty"
-            : "ready",
-        );
-      } catch (error) {
-        setErrorMessage(
-          error instanceof Error
-            ? error.message
-            : "Không thể tổng hợp Learning Trace.",
-        );
-        setPhase("error");
-      }
-    }, 1350);
+        return next;
+      });
+      setPhase(
+        analyzedDay02.topics.length === 0 &&
+          analyzedDay02.reviewItems.length === 0
+          ? "empty"
+          : "ready",
+      );
+    } catch (error) {
+      setErrorMessage(
+        error instanceof LearningTraceApiError
+          ? error.message
+          : "Không thể tổng hợp Learning Trace. Vui lòng thử lại.",
+      );
+      setPhase("error");
+    }
   };
 
   const openStudyMaterial = () => {
@@ -113,7 +120,7 @@ export function LearningTraceApp() {
       eyebrow: "Học liệu đang mở",
       title: `${activeDay.label} · ${activeDay.title}`,
       description:
-        "Prototype CP2 mô phỏng liên kết quay lại slide và transcript chính thức của ngày học đang chọn.",
+        "Demo dùng transcript Day02 đã ẩn danh và chỉ hiển thị nguồn được cung cấp cho phiên phân tích.",
       meta: `${activeDay.slideCount} slide · ${activeDay.groundedSourceCount} nguồn đã đối chiếu`,
     });
   };
@@ -135,7 +142,7 @@ export function LearningTraceApp() {
                 </h1>
                 <span className="inline-flex items-center gap-1.5 rounded-full bg-[#edf3fb] px-3 py-1.5 text-xs font-bold text-[#2e5596]">
                   <Sparkles aria-hidden="true" className="h-3.5 w-3.5" />
-                  Bản thử nghiệm CP2
+                  AI thật · Day02
                 </span>
               </div>
               <p className="mt-3 max-w-2xl text-base leading-7 text-[#687790]">
@@ -505,7 +512,7 @@ export function LearningTraceApp() {
 
       <footer className="border-t border-[#dce4ee] bg-white">
         <div className="mx-auto flex max-w-[1480px] flex-col gap-2 px-4 py-5 text-xs text-[#7d8a9e] sm:flex-row sm:items-center sm:justify-between sm:px-6 lg:px-8">
-          <span>VLearn Learning Trace · Prototype CP2</span>
+          <span>VLearn Learning Trace · Demo AI thật</span>
           <span>Dữ liệu minh họa · Không phải đánh giá năng lực học viên</span>
         </div>
       </footer>

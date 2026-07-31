@@ -88,7 +88,7 @@ export function ContextSidebar({
                   eyebrow: "Lịch sử VLearn Tutor",
                   title: `${interaction.turnId} · ${interaction.page}`,
                   description: interaction.question,
-                  meta: "Dữ liệu mock cho CP2",
+                  meta: "Dữ liệu đã ẩn danh của phiên phân tích",
                 })
               }
               className="group w-full rounded-[14px] border border-[#e4eaf1] bg-[#f8fafc] p-3 text-left transition-colors hover:border-[#cbd8e7] hover:bg-[#f2f6fb] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2e5596]"
