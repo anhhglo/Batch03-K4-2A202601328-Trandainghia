@@ -3,13 +3,23 @@
  * Owner: Trần Tuấn Anh — Backend & Integration Owner
  */
 
-import { LearningTraceInput, LearningTraceAnalysisOutput } from "../validation/json-schema";
+import type {
+  LearningTraceAnalysis,
+  LearningTraceInput,
+} from "@/lib/llm/learning-trace-contract";
 
 export interface ApiResponse<T> {
   success: boolean;
   data?: T;
   error?: string;
-  details?: string[];
+  code?: string;
+}
+
+interface SafeApiError {
+  error?: {
+    code?: unknown;
+    message?: unknown;
+  };
 }
 
 /**
@@ -18,7 +28,7 @@ export interface ApiResponse<T> {
 export async function postLearningTrace(
   payload: LearningTraceInput,
   options?: { timeoutMs?: number }
-): Promise<ApiResponse<LearningTraceAnalysisOutput>> {
+): Promise<ApiResponse<LearningTraceAnalysis>> {
   const timeoutMs = options?.timeoutMs || 30000;
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
@@ -36,15 +46,21 @@ export async function postLearningTrace(
     clearTimeout(timer);
 
     if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
+      const errorData = (await response.json().catch(() => ({}))) as SafeApiError;
       return {
         success: false,
-        error: errorData.error || `HTTP ${response.status}: ${response.statusText}`,
-        details: errorData.details,
+        error:
+          typeof errorData.error?.message === "string"
+            ? errorData.error.message
+            : `Learning Trace request failed (${response.status}).`,
+        code:
+          typeof errorData.error?.code === "string"
+            ? errorData.error.code
+            : undefined,
       };
     }
 
-    const data = await response.json();
+    const data = (await response.json()) as LearningTraceAnalysis;
     return {
       success: true,
       data,

@@ -1,43 +1,121 @@
 /**
- * Citation Guardrail Runtime for Grounding Checks
- * Owner: Trần Tuấn Anh — Backend & Integration Owner
+ * Defence-in-depth citation guard for route integration.
+ *
+ * analyzeLearningTrace() applies the same checks before returning. Keeping this
+ * small canonical guard at the route boundary makes a future analyzer swap
+ * fail closed instead of exposing unverified references.
  */
 
-import { LearningTraceInput, LearningTraceAnalysisOutput } from "./json-schema";
+import type {
+  LearningTraceAnalysis,
+  LearningTraceInput,
+} from "@/lib/llm/learning-trace-contract";
 
 export interface CitationGuardResult {
   isGrounded: boolean;
-  unreferencedClaims: string[];
-  invalidSourceIds: string[];
-  sanitizedOutput?: LearningTraceAnalysisOutput;
+  issues: string[];
 }
 
-/**
- * Checks if claims in LLM output cite valid source IDs from input manifest
- */
+function checkAllowedIds(
+  ids: readonly string[],
+  allowedIds: ReadonlySet<string>,
+  path: string,
+  issues: string[],
+): void {
+  ids.forEach((id, index) => {
+    if (!allowedIds.has(id)) {
+      issues.push(`${path}[${index}] is outside the request allowlist.`);
+    }
+  });
+}
+
 export function checkCitationGuardrail(
   input: LearningTraceInput,
-  output: LearningTraceAnalysisOutput
+  analysis: LearningTraceAnalysis,
 ): CitationGuardResult {
-  const validSourceIds = new Set(input.sources.map((s) => s.sourceId));
-  const validTurnIds = new Set(input.interactions.map((i) => i.turnId));
+  const issues: string[] = [];
+  const allowedTurnIds = new Set(
+    input.interactions.map((interaction) => interaction.turnId),
+  );
+  const allowedSourceIds = new Set(
+    input.sources.map((source) => source.sourceId),
+  );
+  const topicIds = new Set(analysis.topics.map((topic) => topic.id));
 
-  const invalidSourceIds: string[] = [];
-  const unreferencedClaims: string[] = [];
+  if (analysis.dayCode !== input.dayCode) {
+    issues.push("analysis.dayCode must match input.dayCode.");
+  }
 
-  // Verify reviewItems reference valid turn IDs & sources
-  output.reviewItems.forEach((item) => {
-    if (item.evidenceTurnId && !validTurnIds.has(item.evidenceTurnId)) {
-      invalidSourceIds.push(`ReviewItem[${item.id}] references unknown turnId: ${item.evidenceTurnId}`);
+  analysis.topics.forEach((topic, index) => {
+    checkAllowedIds(
+      topic.evidenceTurnIds,
+      allowedTurnIds,
+      `topics[${index}].evidenceTurnIds`,
+      issues,
+    );
+    checkAllowedIds(
+      topic.sourceIds,
+      allowedSourceIds,
+      `topics[${index}].sourceIds`,
+      issues,
+    );
+    topic.keyConcepts.forEach((concept, conceptIndex) =>
+      checkAllowedIds(
+        concept.sourceIds,
+        allowedSourceIds,
+        `topics[${index}].keyConcepts[${conceptIndex}].sourceIds`,
+        issues,
+      ),
+    );
+  });
+
+  analysis.reviewItems.forEach((item, index) => {
+    checkAllowedIds(
+      item.evidenceTurnIds,
+      allowedTurnIds,
+      `reviewItems[${index}].evidenceTurnIds`,
+      issues,
+    );
+    checkAllowedIds(
+      item.sourceIds,
+      allowedSourceIds,
+      `reviewItems[${index}].sourceIds`,
+      issues,
+    );
+    if (!topicIds.has(item.relatedTopicId)) {
+      issues.push(`reviewItems[${index}].relatedTopicId is unknown.`);
     }
   });
 
-  const isGrounded = invalidSourceIds.length === 0 && unreferencedClaims.length === 0;
+  analysis.unassessableItems.forEach((item, index) => {
+    checkAllowedIds(
+      item.evidenceTurnIds,
+      allowedTurnIds,
+      `unassessableItems[${index}].evidenceTurnIds`,
+      issues,
+    );
+    checkAllowedIds(
+      item.sourceIds,
+      allowedSourceIds,
+      `unassessableItems[${index}].sourceIds`,
+      issues,
+    );
+  });
 
-  return {
-    isGrounded,
-    unreferencedClaims,
-    invalidSourceIds,
-    sanitizedOutput: output,
-  };
+  analysis.relationships.forEach((relationship, index) => {
+    if (!topicIds.has(relationship.fromTopicId)) {
+      issues.push(`relationships[${index}].fromTopicId is unknown.`);
+    }
+    if (!topicIds.has(relationship.toTopicId)) {
+      issues.push(`relationships[${index}].toTopicId is unknown.`);
+    }
+    checkAllowedIds(
+      relationship.sourceIds,
+      allowedSourceIds,
+      `relationships[${index}].sourceIds`,
+      issues,
+    );
+  });
+
+  return { isGrounded: issues.length === 0, issues };
 }

@@ -1,89 +1,104 @@
 /**
  * POST /api/learning-trace
- * Owner: Trần Tuấn Anh — Backend & Integration Owner
+ *
+ * The route is a thin trusted boundary: parse request JSON, narrow it to the
+ * canonical input contract, call the Core LLM analyzer, and return only typed
+ * safe errors. Prompt text, provider response bodies and environment values
+ * never cross this boundary.
  */
 
 import { NextResponse } from "next/server";
+
 import {
-  validateLearningTraceInput,
-  validateLearningTraceOutput,
-  LearningTraceAnalysisOutput,
-} from "@/lib/validation/json-schema";
+  analyzeLearningTrace,
+  LearningTraceAnalyzerError,
+} from "@/lib/llm/analyze-learning-trace";
+import type { LearningTraceAnalysis } from "@/lib/llm/learning-trace-contract";
 import { checkCitationGuardrail } from "@/lib/validation/citation-guard";
+import { validateLearningTraceInput } from "@/lib/validation/json-schema";
+
+export const runtime = "nodejs";
+
+interface SafeApiErrorBody {
+  error: {
+    code:
+      | "invalid_json"
+      | "invalid_request"
+      | "configuration"
+      | "timeout"
+      | "model_unavailable"
+      | "invalid_analysis"
+      | "internal";
+    message: string;
+  };
+}
+
+function errorResponse(
+  status: number,
+  code: SafeApiErrorBody["error"]["code"],
+  message: string,
+) {
+  return NextResponse.json<SafeApiErrorBody>({ error: { code, message } }, { status });
+}
+
+function mapAnalyzerError(error: LearningTraceAnalyzerError) {
+  switch (error.code) {
+    case "input_validation":
+      return errorResponse(400, "invalid_request", "Learning Trace input is invalid.");
+    case "configuration":
+      return errorResponse(
+        503,
+        "configuration",
+        "Learning Trace is not configured on this server.",
+      );
+    case "timeout":
+      return errorResponse(504, "timeout", "Learning Trace analysis timed out.");
+    case "model_request":
+    case "model_refusal":
+      return errorResponse(
+        502,
+        "model_unavailable",
+        "Learning Trace analysis is temporarily unavailable.",
+      );
+    case "model_response":
+    case "schema_validation":
+    case "guardrail_validation":
+      return errorResponse(
+        502,
+        "invalid_analysis",
+        "Learning Trace analysis could not be verified.",
+      );
+  }
+}
 
 export async function POST(request: Request) {
+  let body: unknown;
   try {
-    const body = await request.json().catch(() => null);
+    body = await request.json();
+  } catch {
+    return errorResponse(400, "invalid_json", "Request body must be valid JSON.");
+  }
 
-    // 1. Validate Input JSON against contract
-    const validation = validateLearningTraceInput(body);
-    if (!validation.isValid || !validation.data) {
-      return NextResponse.json(
-        {
-          error: "Invalid request payload schema",
-          details: validation.errors,
-        },
-        { status: 400 }
-      );
-    }
+  const validation = validateLearningTraceInput(body);
+  if (!validation.isValid || !validation.data) {
+    return errorResponse(400, "invalid_request", "Learning Trace input is invalid.");
+  }
 
-    const inputData = validation.data;
-
-    // Check API Key
-    const apiKey = process.env.GEMINI_API_KEY;
-    if (!apiKey) {
-      // Return structured fallback / error if API key is not configured
-      return NextResponse.json(
-        {
-          error: "API key (GEMINI_API_KEY) is not configured in environment.",
-        },
-        { status: 500 }
-      );
-    }
-
-    // 2. Integration hook: analyze Learning Trace using LLM core function
-    // Note: analyzeLearningTrace is owned by Trần Đại Nghĩa (src/lib/llm/analyze-learning-trace.ts)
-    // For skeleton/integration purposes, we prepare structural output & guardrail verification:
-    const mockOrLlmedOutput: LearningTraceAnalysisOutput = {
-      dayCode: inputData.dayCode,
-      topics: [],
-      reviewItems: [],
-      unassessableItems: [],
-      relationships: [],
-      meta: {
-        model: process.env.LLM_MODEL_NAME || "gemini-2.5-flash",
-        promptVersion: "v1.0",
-        groundedOnly: true,
-      },
-    };
-
-    // 3. Output Schema Validation
-    const outputValidation = validateLearningTraceOutput(mockOrLlmedOutput);
-    if (!outputValidation.isValid) {
-      return NextResponse.json(
-        {
-          error: "Model output failed schema validation",
-          details: outputValidation.errors,
-        },
-        { status: 502 }
-      );
-    }
-
-    // 4. Citation Guardrail Verification
-    const citationCheck = checkCitationGuardrail(inputData, mockOrLlmedOutput);
+  try {
+    const analysis = await analyzeLearningTrace(validation.data);
+    const citationCheck = checkCitationGuardrail(validation.data, analysis);
     if (!citationCheck.isGrounded) {
-      return NextResponse.json(
-        {
-          error: "Citation guardrail check failed",
-          details: citationCheck.invalidSourceIds,
-        },
-        { status: 422 }
+      return errorResponse(
+        502,
+        "invalid_analysis",
+        "Learning Trace analysis could not be verified.",
       );
     }
-
-    return NextResponse.json(mockOrLlmedOutput, { status: 200 });
-  } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : "Internal Server Error";
-    return NextResponse.json({ error: message }, { status: 500 });
+    return NextResponse.json<LearningTraceAnalysis>(analysis, { status: 200 });
+  } catch (error) {
+    if (error instanceof LearningTraceAnalyzerError) {
+      return mapAnalyzerError(error);
+    }
+    return errorResponse(500, "internal", "Learning Trace request failed safely.");
   }
 }

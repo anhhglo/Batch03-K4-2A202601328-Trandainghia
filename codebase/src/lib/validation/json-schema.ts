@@ -1,166 +1,140 @@
 /**
- * JSON Schema Validator for Learning Trace API
- * Owner: Trần Tuấn Anh — Backend & Integration Owner
+ * Request boundary validation for the Learning Trace route.
+ *
+ * The canonical types live in lib/llm/learning-trace-contract.ts and the
+ * canonical output schema is enforced by analyzeLearningTrace(). This module
+ * deliberately owns no second API or LLM-output schema.
  */
 
-export interface ValidationResult<T = unknown> {
+import type { LearningTraceInput } from "@/lib/llm/learning-trace-contract";
+
+export interface ValidationResult<T> {
   isValid: boolean;
   errors: string[];
   data?: T;
 }
 
-export interface LearningTraceInput {
-  learnerId: string;
-  dayCode: string;
-  conversationId: string;
-  interactions: Array<{
-    turnId: string;
-    question: string;
-    tutorAnswer: string;
-    page?: string;
-  }>;
-  sources: Array<{
-    sourceId: string;
-    label: string;
-    title: string;
-    excerpt: string;
-  }>;
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-export interface LearningTraceAnalysisOutput {
-  dayCode: string;
-  topics: Array<{
-    id: string;
-    title: string;
-    summary: string;
-    slide: string;
-    transcript: string;
-    learnedLabel: string;
-    mindmapChild: string;
-  }>;
-  reviewItems: Array<{
-    id: string;
-    title: string;
-    confidence: "medium" | "low";
-    confidenceLabel: string;
-    reason: string;
-    evidenceTurnId: string;
-    slide: string;
-    transcript?: string;
-    relatedTopicId: string;
-  }>;
-  unassessableItems: Array<{
-    id: string;
-    question: string;
-    reason: string;
-  }>;
-  relationships: Array<{
-    fromTopicId: string;
-    toTopicId: string;
-    relationLabel: string;
-  }>;
-  meta: {
-    model: string;
-    promptVersion: string;
-    groundedOnly: boolean;
-  };
+function hasAllowedKeys(
+  value: unknown,
+  allowedKeys: readonly string[],
+  requiredKeys: readonly string[],
+  path: string,
+  errors: string[],
+): value is Record<string, unknown> {
+  if (!isRecord(value)) {
+    errors.push(`${path} must be an object.`);
+    return false;
+  }
+
+  const allowed = new Set(allowedKeys);
+  for (const key of Object.keys(value)) {
+    if (!allowed.has(key)) {
+      errors.push(`${path}.${key} is not allowed.`);
+    }
+  }
+  for (const key of requiredKeys) {
+    if (!(key in value)) {
+      errors.push(`${path}.${key} is required.`);
+    }
+  }
+  return errors.length === 0;
+}
+
+function isNonEmptyString(value: unknown): value is string {
+  return typeof value === "string" && value.trim().length > 0;
 }
 
 /**
- * Validates request payload against LearningTraceInput schema
+ * Narrows untrusted JSON to the canonical input contract. Detailed size and
+ * allowlist validation remains inside analyzeLearningTrace(), so every caller
+ * (not only this route) receives the same guardrails.
  */
-export function validateLearningTraceInput(input: unknown): ValidationResult<LearningTraceInput> {
+export function validateLearningTraceInput(
+  value: unknown,
+): ValidationResult<LearningTraceInput> {
   const errors: string[] = [];
-
-  if (!input || typeof input !== "object") {
-    return { isValid: false, errors: ["Payload must be a non-null object"] };
+  if (
+    !hasAllowedKeys(
+      value,
+      ["learnerId", "dayCode", "conversationId", "interactions", "sources"],
+      ["learnerId", "dayCode", "conversationId", "interactions", "sources"],
+      "payload",
+      errors,
+    )
+  ) {
+    return { isValid: false, errors };
   }
 
-  const payload = input as Partial<LearningTraceInput>;
-
-  if (!payload.learnerId || typeof payload.learnerId !== "string") {
-    errors.push("Missing or invalid field: learnerId");
+  for (const key of ["learnerId", "dayCode", "conversationId"] as const) {
+    if (!isNonEmptyString(value[key])) {
+      errors.push(`payload.${key} must be a non-empty string.`);
+    }
   }
 
-  if (!payload.dayCode || typeof payload.dayCode !== "string") {
-    errors.push("Missing or invalid field: dayCode");
-  }
-
-  if (!payload.conversationId || typeof payload.conversationId !== "string") {
-    errors.push("Missing or invalid field: conversationId");
-  }
-
-  if (!Array.isArray(payload.interactions)) {
-    errors.push("Missing or invalid field: interactions must be an array");
+  if (!Array.isArray(value.interactions)) {
+    errors.push("payload.interactions must be an array.");
   } else {
-    payload.interactions.forEach((item, index) => {
-      if (!item.turnId || typeof item.turnId !== "string") {
-        errors.push(`interactions[${index}].turnId is required`);
+    value.interactions.forEach((interaction, index) => {
+      const path = `payload.interactions[${index}]`;
+      const itemErrors: string[] = [];
+      const validObject = hasAllowedKeys(
+        interaction,
+        ["turnId", "question", "tutorAnswer", "page"],
+        ["turnId", "question", "tutorAnswer"],
+        path,
+        itemErrors,
+      );
+      const pageProvided = isRecord(interaction) && "page" in interaction;
+      const pageValid =
+        !pageProvided ||
+        interaction.page === undefined ||
+        typeof interaction.page === "string";
+      if (!validObject || !pageValid) {
+        errors.push(...itemErrors);
+        if (!pageValid) {
+          errors.push(`${path}.page must be a string when supplied.`);
+        }
+        return;
       }
-      if (!item.question || typeof item.question !== "string") {
-        errors.push(`interactions[${index}].question is required`);
-      }
-      if (!item.tutorAnswer || typeof item.tutorAnswer !== "string") {
-        errors.push(`interactions[${index}].tutorAnswer is required`);
+      for (const key of ["turnId", "question", "tutorAnswer"] as const) {
+        if (!isNonEmptyString(interaction[key])) {
+          errors.push(`${path}.${key} must be a non-empty string.`);
+        }
       }
     });
   }
 
-  if (!Array.isArray(payload.sources)) {
-    errors.push("Missing or invalid field: sources must be an array");
+  if (!Array.isArray(value.sources)) {
+    errors.push("payload.sources must be an array.");
   } else {
-    payload.sources.forEach((source, index) => {
-      if (!source.sourceId || typeof source.sourceId !== "string") {
-        errors.push(`sources[${index}].sourceId is required`);
+    value.sources.forEach((source, index) => {
+      const path = `payload.sources[${index}]`;
+      const sourceErrors: string[] = [];
+      if (
+        !hasAllowedKeys(
+          source,
+          ["sourceId", "label", "title", "excerpt"],
+          ["sourceId", "label", "title", "excerpt"],
+          path,
+          sourceErrors,
+        )
+      ) {
+        errors.push(...sourceErrors);
+        return;
       }
-      if (!source.label || typeof source.label !== "string") {
-        errors.push(`sources[${index}].label is required`);
+      for (const key of ["sourceId", "label", "title", "excerpt"] as const) {
+        if (!isNonEmptyString(source[key])) {
+          errors.push(`${path}.${key} must be a non-empty string.`);
+        }
       }
     });
   }
 
-  return {
-    isValid: errors.length === 0,
-    errors,
-    data: errors.length === 0 ? (payload as LearningTraceInput) : undefined,
-  };
-}
-
-/**
- * Validates LLM response JSON against output schema
- */
-export function validateLearningTraceOutput(output: unknown): ValidationResult<LearningTraceAnalysisOutput> {
-  const errors: string[] = [];
-
-  if (!output || typeof output !== "object") {
-    return { isValid: false, errors: ["Output must be a non-null object"] };
-  }
-
-  const payload = output as Partial<LearningTraceAnalysisOutput>;
-
-  if (!payload.dayCode || typeof payload.dayCode !== "string") {
-    errors.push("Missing or invalid field in LLM output: dayCode");
-  }
-
-  if (!Array.isArray(payload.topics)) {
-    errors.push("Missing or invalid field in LLM output: topics must be an array");
-  }
-
-  if (!Array.isArray(payload.reviewItems)) {
-    errors.push("Missing or invalid field in LLM output: reviewItems must be an array");
-  }
-
-  if (!Array.isArray(payload.unassessableItems)) {
-    errors.push("Missing or invalid field in LLM output: unassessableItems must be an array");
-  }
-
-  if (!payload.meta || typeof payload.meta !== "object") {
-    errors.push("Missing or invalid field in LLM output: meta");
-  }
-
-  return {
-    isValid: errors.length === 0,
-    errors,
-    data: errors.length === 0 ? (payload as LearningTraceAnalysisOutput) : undefined,
-  };
+  return errors.length === 0
+    ? { isValid: true, errors: [], data: value as unknown as LearningTraceInput }
+    : { isValid: false, errors };
 }
