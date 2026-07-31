@@ -11,3 +11,5 @@ research/samples/
 # Python bytecode
 __pycache__/
 *.pyc
+
+plan-contract-llm.md
