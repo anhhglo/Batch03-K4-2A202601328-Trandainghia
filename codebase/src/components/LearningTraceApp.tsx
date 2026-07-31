@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 import { ContextSidebar } from "@/components/ContextSidebar";
 import { DaySelector } from "@/components/DaySelector";
+import { DemoDataLab } from "@/components/DemoDataLab";
 import {
   EvidenceModal,
   type EvidenceDetail,
@@ -30,9 +31,10 @@ import { KnowledgeMindmap } from "@/components/KnowledgeMindmap";
 import { MetricCard } from "@/components/MetricCard";
 import { PersonalizedNote } from "@/components/PersonalizedNote";
 import {
-  day02DemoDayShell,
+  createDemoDayShell,
+  createDemoSources,
+  createDemoTrace,
   day02DemoInput,
-  day02DemoSources,
   day02DemoTrace,
 } from "@/data/day02-demo";
 import {
@@ -44,13 +46,14 @@ import type { LearningTrace, ReviewStatus } from "@/types/learning-trace";
 
 type AppPhase = "preview" | "analyzing" | "ready" | "empty" | "error";
 type ActiveTab = "note" | "mindmap";
+const SHOW_DEMO_DATA_LAB = process.env.NODE_ENV !== "production";
 
 export function LearningTraceApp() {
   const [phase, setPhase] = useState<AppPhase>("preview");
   const [trace, setTrace] = useState<LearningTrace>(day02DemoTrace);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<ActiveTab>("note");
-  const [activeDayId, setActiveDayId] = useState(day02DemoDayShell.id);
+  const [activeDayId, setActiveDayId] = useState(day02DemoInput.dayCode);
   const [evidenceDetail, setEvidenceDetail] =
     useState<EvidenceDetail | null>(null);
   const [statuses, setStatuses] = useState<Record<string, ReviewStatus>>(() =>
@@ -74,34 +77,37 @@ export function LearningTraceApp() {
 
   const reviewCount = activeDay.reviewItems.length - confirmedCount;
 
-  const startAnalysis = async () => {
+  const startAnalysis = async (input = day02DemoInput) => {
     if (phase === "analyzing") return;
     setPhase("analyzing");
     setErrorMessage(null);
+    const shell = createDemoDayShell(input);
+    const sources = createDemoSources(input);
+    setActiveDayId(shell.id);
+    setTrace(createDemoTrace(input));
 
     try {
-      const analysis = await fetchLearningTraceAnalysis(day02DemoInput);
-      const analyzedDay02 = mapAnalysisToDay(analysis, {
-        shell: day02DemoDayShell,
-        sources: day02DemoSources,
-        interactionCount: day02DemoInput.interactions.length,
+      const analysis = await fetchLearningTraceAnalysis(input);
+      const analyzedDay = mapAnalysisToDay(analysis, {
+        shell,
+        sources,
+        interactionCount: input.interactions.length,
       });
       setTrace((current) => ({
         ...current,
         days: current.days.map((day) =>
-          day.id === analyzedDay02.id ? analyzedDay02 : day,
+          day.id === analyzedDay.id ? analyzedDay : day,
         ),
       }));
       setStatuses((current) => {
         const next = { ...current };
-        analyzedDay02.reviewItems.forEach((item) => {
+        analyzedDay.reviewItems.forEach((item) => {
           next[item.id] ??= "suggested";
         });
         return next;
       });
       setPhase(
-        analyzedDay02.topics.length === 0 &&
-          analyzedDay02.reviewItems.length === 0
+        analyzedDay.topics.length === 0 && analyzedDay.reviewItems.length === 0
           ? "empty"
           : "ready",
       );
@@ -130,6 +136,13 @@ export function LearningTraceApp() {
       <Header />
 
       <main id="main-content">
+        {SHOW_DEMO_DATA_LAB ? (
+          <DemoDataLab
+            initialInput={day02DemoInput}
+            isRunning={phase === "analyzing"}
+            onRun={startAnalysis}
+          />
+        ) : null}
         <section className="border-b border-[#dce4ee] bg-white">
           <div className="mx-auto flex max-w-[1480px] flex-col gap-7 px-4 py-8 sm:px-6 lg:flex-row lg:items-center lg:justify-between lg:px-8 lg:py-10">
             <div className="max-w-3xl">
@@ -171,7 +184,7 @@ export function LearningTraceApp() {
               {phase !== "ready" ? (
                 <button
                   type="button"
-                  onClick={startAnalysis}
+                  onClick={() => void startAnalysis()}
                   disabled={phase === "analyzing"}
                   className="inline-flex min-h-12 items-center justify-center gap-2 rounded-[14px] bg-[#2e5596] px-5 text-sm font-extrabold text-white shadow-[0_8px_20px_rgba(46,85,150,0.22)] transition-all hover:-translate-y-0.5 hover:bg-[#244a84] hover:shadow-[0_10px_24px_rgba(46,85,150,0.28)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2e5596] disabled:cursor-wait disabled:opacity-70 disabled:hover:translate-y-0"
                 >
@@ -279,7 +292,7 @@ export function LearningTraceApp() {
                       </p>
                       <button
                         type="button"
-                        onClick={startAnalysis}
+                        onClick={() => void startAnalysis()}
                         className="mt-5 inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-[#2e5596] px-4 text-sm font-extrabold text-white transition-colors hover:bg-[#244a84] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2e5596]"
                       >
                         <BrainCircuit aria-hidden="true" className="h-4 w-4" />
@@ -382,7 +395,7 @@ export function LearningTraceApp() {
                 </p>
                 <button
                   type="button"
-                  onClick={startAnalysis}
+                  onClick={() => void startAnalysis()}
                   className="mt-5 inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-[#2e5596] px-4 text-sm font-extrabold text-white transition-colors hover:bg-[#244a84] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2e5596]"
                 >
                   <RefreshCw aria-hidden="true" className="h-4 w-4" />

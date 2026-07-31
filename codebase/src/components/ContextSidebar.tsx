@@ -33,12 +33,12 @@ export function ContextSidebar({
               Nguồn & căn cứ
             </h2>
             <p className="text-[11px] text-[#8290a4]">
-              Học liệu chính thức
+              Nguồn được cấp cho phiên
             </p>
           </div>
         </div>
         <p className="mt-4 text-sm leading-6 text-[#64738b]">
-          Mỗi giải thích được đối chiếu với học liệu chính thức.
+          Chỉ source được cấp trong input mới được dùng cho phần giải thích.
         </p>
         <div className="mt-4 flex flex-wrap gap-2">
           {day.sources.map((source) => (

@@ -33,6 +33,10 @@ route's validation failure is reproducible. The missing-key case temporarily
 removes `OPENAI_API_KEY` inside the runner and asserts that no network request
 is made.
 
+One subsequent normal-input request returned a safe `504` timeout before a
+manual rerun passed all five cases. The UI exposes a retry state for this
+transient provider failure; the route does not retry indefinitely.
+
 ## Data bridge check
 
 `normalizeInteractions()` followed by `toLearningTraceInput()` was checked

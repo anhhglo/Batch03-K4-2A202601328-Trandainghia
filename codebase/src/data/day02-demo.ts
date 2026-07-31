@@ -6,8 +6,9 @@ import type {
 } from "@/types/learning-trace";
 
 /**
- * Anonymized Day02 input for the live demo. This is request data, not a mock
- * analysis: every displayed topic/review item is returned by the real API.
+ * Anonymized Day02 request for the live demo. It is input data only: every
+ * topic, review item and relationship displayed in the UI comes from the real
+ * API response.
  */
 const officialSources = [
   {
@@ -36,46 +37,70 @@ export const day02DemoInput: LearningTraceInput = {
   sources: officialSources.map((source) => ({ ...source })),
 };
 
-export const day02DemoSources: SourceReference[] = officialSources.map(
-  ({ sourceId, ...source }) => ({ id: sourceId, ...source }),
-);
+function getDayLabel(dayCode: string): string {
+  const match = /day\D*0?(\d+)/i.exec(dayCode);
+  return match ? `Day ${match[1].padStart(2, "0")}` : "Ngày demo";
+}
 
-export const day02DemoDayShell: Pick<
+export function createDemoSources(
+  input: LearningTraceInput,
+): SourceReference[] {
+  return input.sources.map(({ sourceId, ...source }) => ({
+    id: sourceId,
+    ...source,
+  }));
+}
+
+export function createDemoDayShell(
+  input: LearningTraceInput,
+): Pick<
   LearningDay,
   "id" | "number" | "label" | "title" | "statusLabel" | "slideCount"
-> = {
-  id: day02DemoInput.dayCode,
-  number: "02",
-  label: "Day 02",
-  title: "Xác định bài toán cho AI",
-  statusLabel: "Sẵn sàng tổng hợp",
-  slideCount: 29,
-};
+> {
+  const label = getDayLabel(input.dayCode);
+  return {
+    id: input.dayCode,
+    number: label.replace("Day ", ""),
+    label,
+    title: "Learning Trace thử nghiệm",
+    statusLabel: "Sẵn sàng tổng hợp",
+    slideCount: 29,
+  };
+}
 
-const initialDay: LearningDay = {
-  ...day02DemoDayShell,
-  interactionCount: day02DemoInput.interactions.length,
-  groundedSourceCount: 0,
-  topics: [],
-  reviewItems: [],
-  sources: day02DemoSources,
-  interactions: day02DemoInput.interactions.map((interaction) => ({
-    turnId: interaction.turnId,
-    page: interaction.page ?? "",
-    question: interaction.question,
-    topicId: "",
-  })),
-  unassessableNote: "Learning Trace chưa được tạo.",
-};
+export function createDemoTrace(input: LearningTraceInput): LearningTrace {
+  const shell = createDemoDayShell(input);
+  const sources = createDemoSources(input);
 
-export const day02DemoTrace: LearningTrace = {
-  session: {
-    eyebrow: "VLearn · Learning Trace",
-    title: "Dấu vết học tập của bạn",
-    subtitle:
-      "Tổng hợp một buổi học từ lịch sử hỏi Tutor và học liệu chính thức.",
-    course: "AI Product & Learning Experience",
-    collectionLabel: "Day02 · Dữ liệu đã ẩn danh",
-  },
-  days: [initialDay],
-};
+  return {
+    session: {
+      eyebrow: "VLearn · Learning Trace",
+      title: "Dấu vết học tập của bạn",
+      subtitle:
+        "Tổng hợp một buổi học từ lịch sử hỏi Tutor và học liệu chính thức.",
+      course: "AI Product & Learning Experience",
+      collectionLabel: `${shell.label} · Dữ liệu demo đã ẩn danh`,
+    },
+    days: [
+      {
+        ...shell,
+        interactionCount: input.interactions.length,
+        groundedSourceCount: 0,
+        topics: [],
+        reviewItems: [],
+        sources,
+        interactions: input.interactions.map((interaction) => ({
+          turnId: interaction.turnId,
+          page: interaction.page ?? "",
+          question: interaction.question,
+          topicId: "",
+        })),
+        unassessableNote: "Learning Trace chưa được tạo.",
+      },
+    ],
+  };
+}
+
+export const day02DemoDayShell = createDemoDayShell(day02DemoInput);
+export const day02DemoSources = createDemoSources(day02DemoInput);
+export const day02DemoTrace = createDemoTrace(day02DemoInput);

@@ -76,7 +76,7 @@ export function EvidenceModal({ detail, onClose }: EvidenceModalProps) {
             {detail.meta}
           </span>
           <span className="rounded-full bg-[#eaf7f2] px-3 py-1.5 text-[11px] font-bold text-[#17775d]">
-            Đã đối chiếu nguồn
+            Nguồn đã cấp
           </span>
         </div>
       </section>
