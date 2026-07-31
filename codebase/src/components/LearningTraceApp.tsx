@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import {
   AlertTriangle,
+  ArrowLeft,
   ArrowRight,
   BookOpen,
   BookOpenText,
@@ -10,7 +11,6 @@ import {
   CheckCircle2,
   CircleAlert,
   FileCheck2,
-  Inbox,
   LockKeyhole,
   MessageSquareText,
   Network,
@@ -20,7 +20,6 @@ import {
   Sparkles,
 } from "lucide-react";
 import { ContextSidebar } from "@/components/ContextSidebar";
-import { DaySelector } from "@/components/DaySelector";
 import {
   EvidenceModal,
   type EvidenceDetail,
@@ -33,9 +32,9 @@ import { TutorSimulator } from "@/components/TutorSimulator";
 import {
   createDemoDayShell,
   createDemoSources,
-  createDemoTrace,
+  createEmptyTrace,
+  createSessionMeta,
   day02DemoInput,
-  day02DemoTrace,
 } from "@/data/day02-demo";
 import {
   analyzeTutorSession,
@@ -45,11 +44,12 @@ import {
   fetchLearningTraceAnalysis,
   LearningTraceApiError,
   mapAnalysisToDay,
+  upsertAnalyzedDay,
 } from "@/lib/ui/learning-trace-adapter";
 import type { LearningTraceInput } from "@/lib/llm/learning-trace-contract";
 import type { LearningTrace, ReviewStatus } from "@/types/learning-trace";
 
-type AppPhase = "preview" | "analyzing" | "ready" | "empty" | "error";
+type AppPhase = "preview" | "analyzing" | "ready" | "error";
 type ActiveTab = "note" | "mindmap";
 type LastAnalysis =
   | { kind: "input"; input: LearningTraceInput }
@@ -57,36 +57,60 @@ type LastAnalysis =
 
 export function LearningTraceApp() {
   const [phase, setPhase] = useState<AppPhase>("preview");
-  const [trace, setTrace] = useState<LearningTrace>(day02DemoTrace);
+  const [trace, setTrace] = useState<LearningTrace>(createEmptyTrace);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<ActiveTab>("note");
-  const [activeDayId, setActiveDayId] = useState(day02DemoInput.dayCode);
+  /** `null` shows the day cards grid; a day id opens that day's note/mindmap. */
+  const [openDayId, setOpenDayId] = useState<string | null>(null);
   const [evidenceDetail, setEvidenceDetail] =
     useState<EvidenceDetail | null>(null);
   const [lastAnalysis, setLastAnalysis] = useState<LastAnalysis>({
     kind: "input",
     input: day02DemoInput,
   });
-  const [statuses, setStatuses] = useState<Record<string, ReviewStatus>>(() =>
-    Object.fromEntries(
-      trace.days
-        .flatMap((day) => day.reviewItems)
-        .map((item) => [item.id, "suggested" as const]),
-    ),
+  const [statuses, setStatuses] = useState<Record<string, ReviewStatus>>({});
+
+  const openDay = openDayId
+    ? (trace.days.find((day) => day.id === openDayId) ?? null)
+    : null;
+
+  /** Metrics follow the open day, or summarise every analyzed day on the grid. */
+  const scopedDays = useMemo(
+    () => (openDay ? [openDay] : trace.days),
+    [openDay, trace.days],
   );
 
-  const activeDay =
-    trace.days.find((day) => day.id === activeDayId) ?? trace.days[0];
+  const scopedReviewItems = useMemo(
+    () => scopedDays.flatMap((day) => day.reviewItems),
+    [scopedDays],
+  );
 
   const confirmedCount = useMemo(
     () =>
-      activeDay.reviewItems.filter(
-        (item) => statuses[item.id] === "confirmed",
-      ).length,
-    [activeDay, statuses],
+      scopedReviewItems.filter((item) => statuses[item.id] === "confirmed")
+        .length,
+    [scopedReviewItems, statuses],
   );
 
-  const reviewCount = activeDay.reviewItems.length - confirmedCount;
+  const reviewCount = scopedReviewItems.length - confirmedCount;
+
+  const scopedInteractionCount = scopedDays.reduce(
+    (total, day) => total + day.interactionCount,
+    0,
+  );
+  const scopedTopicCount = scopedDays.reduce(
+    (total, day) => total + day.topics.length,
+    0,
+  );
+  const scopedSourceCount = scopedDays.reduce(
+    (total, day) => total + day.groundedSourceCount,
+    0,
+  );
+  const scopeLabel = openDay
+    ? openDay.label
+    : trace.days.length === 0
+      ? "chưa có ngày nào"
+      : `${trace.days.length} ngày`;
 
   const applyAnalysis = (
     input: LearningTraceInput,
@@ -98,19 +122,17 @@ export function LearningTraceApp() {
       ...(title ? { title } : {}),
     };
     const sources = createDemoSources(input);
-    setActiveDayId(shell.id);
-    setTrace(createDemoTrace(input));
     const analyzedDay = mapAnalysisToDay(analysis, {
       shell,
       sources,
       interactionCount: input.interactions.length,
     });
-    setTrace((current) => ({
-      ...current,
-      days: current.days.map((day) =>
-        day.id === analyzedDay.id ? analyzedDay : day,
-      ),
-    }));
+
+    // Each analyzed session becomes one day card on the grid.
+    setTrace((current) => {
+      const days = upsertAnalyzedDay(current.days, analyzedDay);
+      return { session: createSessionMeta(days.length), days };
+    });
     setStatuses((current) => {
       const next = { ...current };
       analyzedDay.reviewItems.forEach((item) => {
@@ -118,11 +140,9 @@ export function LearningTraceApp() {
       });
       return next;
     });
-    setPhase(
-      analyzedDay.topics.length === 0 && analyzedDay.reviewItems.length === 0
-        ? "empty"
-        : "ready",
-    );
+    // Land on the grid so the learner picks a day card to open its note/mindmap.
+    setOpenDayId(null);
+    setPhase("ready");
     window.requestAnimationFrame(() => {
       document.getElementById("learning-trace")?.scrollIntoView({
         behavior: "smooth",
@@ -136,9 +156,6 @@ export function LearningTraceApp() {
     setPhase("analyzing");
     setErrorMessage(null);
     setLastAnalysis({ kind: "input", input });
-    const shell = createDemoDayShell(input);
-    setActiveDayId(shell.id);
-    setTrace(createDemoTrace(input));
 
     try {
       const analysis = await fetchLearningTraceAnalysis(input);
@@ -202,12 +219,15 @@ export function LearningTraceApp() {
   };
 
   const openStudyMaterial = () => {
+    const day = openDay ?? trace.days[0];
     setEvidenceDetail({
       eyebrow: "Học liệu đang mở",
-      title: `${activeDay.label} · ${activeDay.title}`,
+      title: day ? `${day.label} · ${day.title}` : "Chưa có ngày nào được tổng hợp",
       description:
         "Demo chỉ hiển thị nguồn được cấp cho session hiện tại; Tutor answer không phải học liệu chính thức.",
-      meta: `${activeDay.slideCount} slide · ${activeDay.groundedSourceCount} nguồn đã đối chiếu`,
+      meta: day
+        ? `${day.slideCount} slide · ${day.groundedSourceCount} nguồn đã đối chiếu`
+        : "Hãy chat với AI Tutor rồi bấm Tạo Note & Mindmap.",
     });
   };
 
@@ -218,7 +238,7 @@ export function LearningTraceApp() {
       <main id="main-content">
         <TutorSimulator
           isAnalyzing={phase === "analyzing"}
-          analysisComplete={phase === "ready" || phase === "empty"}
+          analysisComplete={phase === "ready"}
           onAnalyze={startTutorSessionAnalysis}
         />
         <section className="border-b border-[#dce4ee] bg-white">
@@ -283,14 +303,14 @@ export function LearningTraceApp() {
             <MetricCard
               icon={<MessageSquareText className="h-5 w-5" />}
               label="Lượt hỏi Tutor"
-              value={activeDay.interactionCount}
-              helper={activeDay.label}
+              value={scopedInteractionCount}
+              helper={scopeLabel}
             />
             <MetricCard
               icon={<NotebookTabs className="h-5 w-5" />}
               label="Chủ đề đã tìm hiểu"
-              value={activeDay.topics.length}
-              helper={activeDay.label}
+              value={scopedTopicCount}
+              helper={scopeLabel}
               accent="green"
             />
             <MetricCard
@@ -303,8 +323,8 @@ export function LearningTraceApp() {
             <MetricCard
               icon={<FileCheck2 className="h-5 w-5" />}
               label="Nguồn có căn cứ"
-              value={activeDay.groundedSourceCount}
-              helper={activeDay.label}
+              value={scopedSourceCount}
+              helper={scopeLabel}
               accent="red"
             />
           </section>
@@ -426,11 +446,7 @@ export function LearningTraceApp() {
                   <span className="analysis-progress block h-full rounded-full bg-[#2e5596]" />
                 </div>
                 <div className="mt-4 flex items-center justify-center gap-5 text-[11px] font-bold text-[#8390a3]">
-                  <span>{activeDay.interactionCount} lượt hỏi</span>
-                  <span className="h-1 w-1 rounded-full bg-[#aab5c4]" />
-                  <span>{activeDay.groundedSourceCount} nguồn</span>
-                  <span className="h-1 w-1 rounded-full bg-[#aab5c4]" />
-                  <span>{activeDay.topics.length} chủ đề</span>
+                  <span>{trace.days.length} ngày đã tổng hợp</span>
                 </div>
               </div>
             </section>
@@ -464,28 +480,8 @@ export function LearningTraceApp() {
             </section>
           ) : null}
 
-          {phase === "empty" ? (
-            <section
-              className="mt-6 grid min-h-[420px] place-items-center rounded-[22px] border border-[#dce4ee] bg-white p-6 shadow-[0_12px_34px_rgba(15,35,64,0.06)]"
-              aria-live="polite"
-            >
-              <div className="w-full max-w-md text-center">
-                <span className="mx-auto grid h-16 w-16 place-items-center rounded-[20px] bg-[#edf3fb] text-[#2e5596]">
-                  <Inbox aria-hidden="true" className="h-7 w-7" />
-                </span>
-                <h2 className="mt-5 text-xl font-extrabold tracking-[-0.025em] text-[#0b1730]">
-                  Chưa đủ dữ liệu cho {activeDay.label}
-                </h2>
-                <p className="mt-2 text-sm leading-6 text-[#71809a]">
-                  Không có chủ đề hoặc gợi ý ôn tập nào được tổng hợp từ lịch
-                  sử hỏi Tutor của buổi học này.
-                </p>
-              </div>
-            </section>
-          ) : null}
-
-          {phase === "ready" ? (
-            <section className="mt-6">
+          {phase === "ready" && openDay === null ? (
+            <section className="mt-6" aria-labelledby="day-cards-heading">
               <div className="mb-4 flex items-start gap-3 rounded-[16px] border border-[#cbdbea] bg-[#f6f9fd] p-4">
                 <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-white text-[#2e5596] shadow-sm ring-1 ring-[#dbe5ef]">
                   <ShieldCheck aria-hidden="true" className="h-[18px] w-[18px]" />
@@ -497,6 +493,123 @@ export function LearningTraceApp() {
                   <p className="mt-1 text-sm leading-6 text-[#60728d]">
                     Kết quả dựa trên các câu hỏi của bạn trong buổi học. Bạn luôn
                     có thể xác nhận hoặc chỉnh sửa.
+                  </p>
+                </div>
+              </div>
+
+              <div className="overflow-hidden rounded-[22px] border border-[#dce4ee] bg-white shadow-[0_12px_34px_rgba(15,35,64,0.06)]">
+                <div className="border-b border-[#e1e7ef] px-5 py-5 sm:px-6">
+                  <p className="text-[11px] font-extrabold uppercase tracking-[0.12em] text-[#c83b3b]">
+                    Chọn ngày học
+                  </p>
+                  <h2
+                    id="day-cards-heading"
+                    className="mt-1 text-lg font-extrabold tracking-[-0.02em] text-[#0b1730]"
+                  >
+                    Learning Trace được nhóm theo ngày
+                  </h2>
+                  <p className="mt-1 text-sm leading-6 text-[#71809a]">
+                    Bấm vào một thẻ ngày để mở Note và Bản đồ kiến thức của ngày
+                    đó.
+                  </p>
+                </div>
+
+                <div
+                  className="grid gap-3 p-5 sm:px-6 lg:grid-cols-2 xl:grid-cols-3"
+                  role="group"
+                  aria-label="Danh sách ngày học"
+                >
+                  {trace.days.map((day) => {
+                    const dayConfirmed = day.reviewItems.filter(
+                      (item) => statuses[item.id] === "confirmed",
+                    ).length;
+                    const dayRemaining = day.reviewItems.length - dayConfirmed;
+
+                    return (
+                      <button
+                        key={day.id}
+                        type="button"
+                        onClick={() => {
+                          setActiveTab("note");
+                          setOpenDayId(day.id);
+                        }}
+                        className="group flex min-h-[132px] items-center gap-4 rounded-[18px] border border-[#dce4ee] bg-white p-4 text-left transition-all hover:-translate-y-0.5 hover:border-[#b9cbe0] hover:shadow-[0_8px_20px_rgba(15,35,64,0.07)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2e5596]"
+                      >
+                        <span className="grid h-[68px] w-[68px] shrink-0 place-items-center rounded-full bg-[#f1f4f8] text-[#536784] transition-colors group-hover:bg-[#e4edf8] group-hover:text-[#214a84]">
+                          <span className="text-center">
+                            <span className="block text-[10px] font-extrabold uppercase tracking-[0.08em]">
+                              Day
+                            </span>
+                            <strong className="block text-[25px] leading-6 tracking-[-0.04em]">
+                              {day.number}
+                            </strong>
+                          </span>
+                        </span>
+
+                        <span className="min-w-0 flex-1">
+                          <strong className="block text-base font-black text-[#10213d]">
+                            {day.label}
+                          </strong>
+                          <span className="mt-1 block truncate text-xs font-semibold text-[#60728d]">
+                            {day.title}
+                          </span>
+                          <span className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-[10px] font-semibold text-[#8794a7]">
+                            <span>{day.interactionCount} lượt hỏi</span>
+                            <span aria-hidden="true">·</span>
+                            <span>{day.topics.length} chủ đề</span>
+                            <span aria-hidden="true">·</span>
+                            {dayRemaining > 0 ? (
+                              <span className="text-[#a66610]">
+                                {dayRemaining} gợi ý cần xác nhận
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1 text-[#17775d]">
+                                <CheckCircle2
+                                  aria-hidden="true"
+                                  className="h-3 w-3"
+                                />
+                                Không có gợi ý chờ
+                              </span>
+                            )}
+                          </span>
+                          <span className="mt-2 inline-flex items-center gap-1.5 text-xs font-extrabold text-[#2e5596]">
+                            Xem note &amp; mindmap
+                            <ArrowRight
+                              aria-hidden="true"
+                              className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5"
+                            />
+                          </span>
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            </section>
+          ) : null}
+
+          {phase === "ready" && openDay !== null ? (
+            <section className="mt-6">
+              <button
+                type="button"
+                onClick={() => setOpenDayId(null)}
+                className="mb-4 inline-flex min-h-10 items-center gap-2 rounded-xl border border-[#cfd9e6] bg-white px-3.5 text-sm font-extrabold text-[#365170] transition-colors hover:bg-[#f7f9fc] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2e5596]"
+              >
+                <ArrowLeft aria-hidden="true" className="h-4 w-4" />
+                Tất cả ngày học
+              </button>
+
+              <div className="mb-4 flex items-start gap-3 rounded-[16px] border border-[#cbdbea] bg-[#f6f9fd] p-4">
+                <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-white text-[#2e5596] shadow-sm ring-1 ring-[#dbe5ef]">
+                  <ShieldCheck aria-hidden="true" className="h-[18px] w-[18px]" />
+                </span>
+                <div>
+                  <h2 className="text-sm font-extrabold text-[#1b3558]">
+                    {openDay.label} · {openDay.title}
+                  </h2>
+                  <p className="mt-1 text-sm leading-6 text-[#60728d]">
+                    Đây là gợi ý, không phải đánh giá năng lực. Bạn luôn có thể
+                    xác nhận hoặc chỉnh sửa.
                   </p>
                 </div>
               </div>
@@ -534,13 +647,6 @@ export function LearningTraceApp() {
                     </button>
                   </div>
 
-                  <DaySelector
-                    days={trace.days}
-                    activeDayId={activeDay.id}
-                    statuses={statuses}
-                    onSelectDay={setActiveDayId}
-                  />
-
                   <div
                     className="p-5 sm:p-6"
                     role="tabpanel"
@@ -552,7 +658,7 @@ export function LearningTraceApp() {
                   >
                     {activeTab === "note" ? (
                       <PersonalizedNote
-                        day={activeDay}
+                        day={openDay}
                         statuses={statuses}
                         onSetStatus={(id, status) =>
                           setStatuses((current) => ({
@@ -564,7 +670,7 @@ export function LearningTraceApp() {
                       />
                     ) : (
                       <KnowledgeMindmap
-                        day={activeDay}
+                        day={openDay}
                         statuses={statuses}
                       />
                     )}
@@ -572,7 +678,7 @@ export function LearningTraceApp() {
                 </div>
 
                 <ContextSidebar
-                  day={activeDay}
+                  day={openDay}
                   confirmedCount={confirmedCount}
                   onOpenEvidence={setEvidenceDetail}
                 />

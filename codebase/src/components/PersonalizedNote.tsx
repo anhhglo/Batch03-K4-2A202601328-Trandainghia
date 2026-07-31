@@ -49,6 +49,12 @@ export function PersonalizedNote({
         </div>
 
         <div className="mt-4 grid gap-3">
+          {day.topics.length === 0 ? (
+            <p className="rounded-[18px] border border-dashed border-[#cfd9e6] bg-[#f9fbfd] p-4 text-sm leading-6 text-[#687790]">
+              Chưa có chủ đề nào đủ căn cứ từ học liệu được cấp cho {day.label}.
+              Lý do cụ thể nằm ở mục “Chưa đủ dữ liệu để kết luận” bên dưới.
+            </p>
+          ) : null}
           {day.topics.map((topic, index) => (
             <article
               key={topic.id}
@@ -112,6 +118,12 @@ export function PersonalizedNote({
         </div>
 
         <div className="mt-4 grid gap-4 xl:grid-cols-2">
+          {day.reviewItems.length === 0 ? (
+            <p className="rounded-[18px] border border-dashed border-[#ead9ad] bg-[#fffdf7] p-4 text-sm leading-6 text-[#7d6a45] xl:col-span-2">
+              Không có gợi ý ôn tập nào cho {day.label}. Đây là kết quả hợp lệ:
+              hệ thống chỉ nêu gợi ý khi lượt chat có tín hiệu rõ ràng.
+            </p>
+          ) : null}
           {day.reviewItems.map((item) => {
             const status = statuses[item.id] ?? "suggested";
             const isConfirmed = status === "confirmed";

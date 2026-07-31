@@ -70,17 +70,46 @@ export function createDemoDayShell(
   };
 }
 
+const demoSession = {
+  eyebrow: "VLearn · Learning Trace",
+  title: "Dấu vết học tập của bạn",
+  subtitle:
+    "Tổng hợp một buổi học từ lịch sử hỏi Tutor và học liệu chính thức.",
+  course: "AI Product & Learning Experience",
+} as const;
+
+/**
+ * Starting point for the app: no day has been analyzed yet, so the day cards
+ * grid is empty. Days are appended one per analyzed Tutor session.
+ */
+export function createEmptyTrace(): LearningTrace {
+  return {
+    session: {
+      ...demoSession,
+      collectionLabel: "Chưa có ngày nào được tổng hợp",
+    },
+    days: [],
+  };
+}
+
+/** Session header copy for a trace that already holds `dayCount` days. */
+export function createSessionMeta(dayCount: number): LearningTrace["session"] {
+  return {
+    ...demoSession,
+    collectionLabel:
+      dayCount === 1
+        ? "1 ngày đã tổng hợp · Dữ liệu demo đã ẩn danh"
+        : `${dayCount} ngày đã tổng hợp · Dữ liệu demo đã ẩn danh`,
+  };
+}
+
 export function createDemoTrace(input: LearningTraceInput): LearningTrace {
   const shell = createDemoDayShell(input);
   const sources = createDemoSources(input);
 
   return {
     session: {
-      eyebrow: "VLearn · Learning Trace",
-      title: "Dấu vết học tập của bạn",
-      subtitle:
-        "Tổng hợp một buổi học từ lịch sử hỏi Tutor và học liệu chính thức.",
-      course: "AI Product & Learning Experience",
+      ...demoSession,
       collectionLabel: `${shell.label} · Dữ liệu demo đã ẩn danh`,
     },
     days: [

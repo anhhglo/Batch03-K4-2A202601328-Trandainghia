@@ -9,6 +9,7 @@ import type {
   SourceReference,
 } from "@/types/learning-trace";
 
+
 /** Display metadata belongs to the UI, not to the LLM response. */
 export type DayShell = Pick<
   LearningDay,
@@ -97,10 +98,20 @@ export function mapAnalysisToDay(
     ...analysis.relationships.flatMap((item) => item.sourceIds),
   ]);
 
+  const hasFindings =
+    analysis.topics.length > 0 || analysis.reviewItems.length > 0;
+
+  /**
+   * A run can legitimately produce nothing. It must still say why, otherwise
+   * the learner sees a blank result and cannot tell silence-with-reason from a
+   * broken analysis.
+   */
   const unassessableNote =
     analysis.unassessableItems.length > 0
       ? analysis.unassessableItems.map((item) => item.reason).join(" ")
-      : "Không có tương tác nào bị loại khỏi gợi ý ôn tập.";
+      : hasFindings
+        ? "Không có tương tác nào bị loại khỏi gợi ý ôn tập."
+        : "Học liệu được cấp cho buổi này chưa đủ căn cứ để rút ra chủ đề hoặc gợi ý ôn tập. Hãy mở lại lượt chat gốc để tự kiểm chứng.";
 
   return {
     ...shell,
@@ -112,6 +123,31 @@ export function mapAnalysisToDay(
     interactions: [],
     unassessableNote,
   };
+}
+
+/** Sorts "Day 01" before "Day 02"; unparsable numbers fall back to id order. */
+export function compareDays(a: LearningDay, b: LearningDay): number {
+  const left = Number(a.number);
+  const right = Number(b.number);
+  if (Number.isNaN(left) || Number.isNaN(right)) {
+    return a.id.localeCompare(b.id);
+  }
+  return left - right;
+}
+
+/**
+ * Adds one analyzed day to the day-cards grid. Re-analyzing a day replaces that
+ * card in place, so earlier days stay on the grid instead of being wiped.
+ */
+export function upsertAnalyzedDay(
+  days: readonly LearningDay[],
+  day: LearningDay,
+): LearningDay[] {
+  const isKnownDay = days.some((existing) => existing.id === day.id);
+  const next = isKnownDay
+    ? days.map((existing) => (existing.id === day.id ? day : existing))
+    : [...days, day];
+  return [...next].sort(compareDays);
 }
 
 export function mapAnalysisToTrace(
@@ -133,13 +169,16 @@ export function mapAnalysisToTrace(
 }
 
 export class LearningTraceApiError extends Error {
-  constructor(
-    public readonly status: number,
-    message: string,
-    public readonly code?: string,
-  ) {
+  // Plain fields, not TypeScript parameter properties, so this module stays
+  // loadable by `node --experimental-strip-types` in research/scripts/ts.
+  readonly status: number;
+  readonly code?: string;
+
+  constructor(status: number, message: string, code?: string) {
     super(message);
     this.name = "LearningTraceApiError";
+    this.status = status;
+    this.code = code;
   }
 }
 

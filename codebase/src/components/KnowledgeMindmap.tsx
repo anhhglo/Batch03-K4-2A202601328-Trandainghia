@@ -51,7 +51,19 @@ export function KnowledgeMindmap({
         </span>
       </div>
 
-      <div className="mindmap-canvas mt-5 hidden overflow-hidden rounded-[20px] border border-[#dce4ee] bg-[#f8fbfe] px-5 py-8 md:block">
+      {day.topics.length === 0 ? (
+        <p className="mt-5 rounded-[20px] border border-dashed border-[#cfd9e6] bg-[#f8fbfe] p-5 text-sm leading-6 text-[#687790]">
+          Chưa có nhánh kiến thức nào cho {day.label}. Bản đồ chỉ vẽ những chủ đề
+          đã đối chiếu được với học liệu chính thức, nên khi chưa đủ căn cứ thì
+          nó để trống thay vì suy đoán.
+        </p>
+      ) : null}
+
+      <div
+        className={`mindmap-canvas mt-5 overflow-hidden rounded-[20px] border border-[#dce4ee] bg-[#f8fbfe] px-5 py-8 ${
+          day.topics.length === 0 ? "hidden" : "hidden md:block"
+        }`}
+      >
         <div className="mindmap-root">
           <span className="mindmap-root-icon">
             <GitBranch aria-hidden="true" className="h-5 w-5" />
