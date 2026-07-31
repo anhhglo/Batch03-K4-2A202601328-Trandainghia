@@ -55,7 +55,7 @@ Ba nhóm theo `spec.md` §4:
 - Trang slide hoặc mã transcript **tồn tại thật** trong data pack — mã transcript đúng định dạng `[Txx-NNN]` và có trong file tương ứng; số trang nằm trong bộ slide mà `day_code` của case ánh xạ tới;
 - Nội dung nguồn đó **thực sự nói về khái niệm** đang được giải thích.
 
-**Ràng buộc quan trọng — phần lớn `day_code` không đối chiếu được.** Data pack chỉ có 2 bộ slide (Day 1, Day 2 — 29 trang/bộ) và 6 transcript. Nhưng chỉ **91/1261 lượt (7,2%)** có `day_code` gọi tên Day1/Day2; số còn lại là mã đục (`Lecture_material_ms…`) hoặc placeholder `New learning material` (397 lượt). Con số trang trong chatlog vượt xa 29 (có lượt cite trang 67, trang 96), tức chúng thuộc tài liệu **không nằm trong pack**.
+**Ràng buộc quan trọng — phần lớn `day_code` không đối chiếu được.** Data pack chỉ có 2 bộ slide (Day 1, Day 2 — 29 trang/bộ) và 6 transcript. Nhưng chỉ **108/1261 lượt (8,6%)** có `day_code` gọi tên Day1/Day2; số còn lại là mã đục (`Lecture_material_ms…`) hoặc placeholder `New learning material` (397 lượt). Con số trang trong chatlog vượt xa 29 (có lượt cite trang 67, trang 96), tức chúng thuộc tài liệu **không nằm trong pack**.
 
 Hệ quả cho việc chấm:
 

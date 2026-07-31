@@ -1,6 +1,8 @@
 # Golden set — Learning Trace · 24 case
 
-Bộ case chốt cùng `spec.md` §7 lúc 2026-07-30. Định nghĩa chấm từng chiều: `rubric-cham.md`. Kết quả từng lượt: `run-NN.md`.
+Bộ case chốt cùng `spec.md` §7 lúc 2026-07-30. Định nghĩa chấm từng chiều: `rubric-cham.md`. Kết quả từng lượt: `runs/run-NN.md`.
+
+> **Đính chính số liệu (2026-07-30):** Số `day_code` đối chiếu được là **8,6% (108/1261 lượt)**, không phải 7,2% — regex cũ bỏ sót `day_code` có dấu cách (`Day 1`, `Day 2`, 17 lượt). Kết luận thiết kế không đổi, chỉ đổi con số.
 
 ## Luật ghi case (bảo mật data pack)
 
