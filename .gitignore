@@ -1,6 +1,13 @@
 .DS_Store
 node_modules/
+.env
 *.env
 
-# Personal, local checklist for the Core LLM owner.
-plan-contract-llm.md
+# Bản trích từ data pack dùng để audit phép đếm — tái sinh bằng
+# `python3 research/scripts/mine_chatlog.py --samples`.
+# Không commit: quy định data pack cấm đổ nguyên dữ liệu vào repo nộp bài.
+research/samples/
+
+# Python bytecode
+__pycache__/
+*.pyc

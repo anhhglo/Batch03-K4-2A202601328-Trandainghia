@@ -1,0 +1,150 @@
+{
+  "schema_version": "1.0.0",
+  "source": {
+    "file": "data/vlearn-pack/chatlog/chat_history_anonymized_for_hackathon.csv",
+    "sha256": "400ce4ce5c1c58189be9ca0630bd517ca69cfcac637f0f802edec70f4f796cad",
+    "rows": 2522
+  },
+  "rules": {
+    "template_question": "content khớp regex TEMPLATE_QUESTION — câu hỏi do platform sinh, học viên không tự gõ",
+    "summary_intent": "content (đã bỏ tiền tố bôi đen) khớp SUMMARY_INTENT",
+    "explicit_confusion": "content (đã bỏ tiền tố bôi đen) khớp EXPLICIT_CONFUSION",
+    "logistics": "content (đã bỏ tiền tố bôi đen) khớp LOGISTICS",
+    "mappable_day_code": "day_code khớp MAPPABLE_DAY_CODE — đối chiếu được với slide trong data pack",
+    "no_citation": "message của tutor có citations rỗng ([] hoặc chuỗi trống)",
+    "session": "một phiên = (user_id, day_code) — khớp cách sản phẩm lọc dữ liệu theo buổi",
+    "repeat_page": "trong cùng phiên, học viên hỏi ≥2 lượt về cùng một số trang"
+  },
+  "audit": {
+    "method": {
+      "explicit_confusion": "audit tay 100% — 10 lượt khớp thô, loại 2, còn 8",
+      "logistics": "audit tay 100% — 9 lượt khớp thô, loại 4, còn 5",
+      "summary_intent": "precision: mẫu seed=42 n=30 → 96,7%. recall: mẫu phân tầng 120/776 seed 2026+777 → 87,2% (KTC95 70,3–95,2%)",
+      "template_question": "quy tắc chuỗi cố định, không cần audit",
+      "no_citation": "đọc trực tiếp trường citations, không cần audit"
+    },
+    "manual_exclusions": {
+      "explicit_confusion": {
+        "T0597": "Cụm 'chưa hiểu' mô tả một sinh viên SE giả định mà học viên muốn Tutor giải thích cho, không phải chính học viên chưa hiểu.",
+        "T0947": "Học viên dán nguyên đoạn đề bài trên slide (không có ngoặc kép); cụm khớp nằm trong nội dung slide, không phải lời học viên."
+      },
+      "logistics": {
+        "T0796": "Đoạn đề bài 'viết prompt cho chatbot ... đăng ký môn học' dán từ slide.",
+        "T1008": "Cùng đoạn đề bài slide như T0796 (bản dán thiếu chữ đầu), học viên không hỏi gì về đăng ký môn học.",
+        "T1036": "Cùng đoạn đề bài slide như T0796; cụm khớp là nội dung bài tập viết prompt.",
+        "T1093": "Cùng đoạn đề bài slide như T0796; cụm khớp là nội dung bài tập viết prompt."
+      }
+    },
+    "sample_audit": {
+      "summary_intent": {
+        "sample_size": 30,
+        "seed": 42,
+        "true_positives": 29,
+        "precision_pct": 96.7,
+        "false_positives": {
+          "T0218": "Cụm 'không tổng hợp nhiều' nằm trong đoạn đề bài dán từ slide."
+        }
+      }
+    },
+    "recall_audit": {
+      "summary_intent": {
+        "method": "phân tầng; tầng A (không có chữ học viên) loại theo định nghĩa, tầng B lấy mẫu 120/776 với seed 2026 và 777",
+        "stratum_b_sample": 120,
+        "stratum_b_population": 776,
+        "false_negatives_before_fix": {
+          "T1253": "Toàn bộ slide này trình bày về nội dung gì? — hỏi tổng quan cả bộ slide.",
+          "T0591": "nêu những kiến thức cần học một cách chi tiết — xin liệt kê toàn bộ nội dung.",
+          "T1149": "nội dung bài học day 2 — hỏi tổng quan cả buổi.",
+          "T0737": "Neu ba y chinh cua slide — viết KHÔNG DẤU nên quy tắc cũ bỏ sót. Đã sửa bằng cách thêm biến thể không dấu."
+        },
+        "fixed_by_unaccented_variants": [
+          "T0224",
+          "T0737",
+          "T0879",
+          "T1184"
+        ],
+        "recall_pct_estimate": 87.2,
+        "recall_ci95": [
+          70.3,
+          95.2
+        ],
+        "remaining_gap": "3 lượt còn sót là do ngữ nghĩa, không do chính tả: hỏi 'nội dung ... là gì' mà không dùng từ khoá tóm tắt."
+      }
+    },
+    "raw_matches_before_exclusion": {
+      "explicit_confusion": 10,
+      "logistics": 9
+    }
+  },
+  "scale": {
+    "turns": 1261,
+    "users": 369,
+    "conversations": 585,
+    "day_codes": 21,
+    "date_from": "2026-07-22",
+    "date_to": "2026-07-29"
+  },
+  "session_depth": {
+    "definition": "một phiên = (user_id, day_code) — khớp cách sản phẩm lọc dữ liệu theo buổi",
+    "sessions": 563,
+    "median_turns": 1,
+    "mean_turns": 2.24,
+    "max_turns": 30,
+    "sessions_1_turn": 292,
+    "sessions_1_turn_pct": 51.9,
+    "sessions_le2_turns": 419,
+    "sessions_le2_turns_pct": 74.4,
+    "sessions_ge5_turns": 50
+  },
+  "grounding": {
+    "turns_without_citation": 582,
+    "turns_without_citation_pct": 46.2,
+    "turns_mappable_day_code": 108,
+    "turns_mappable_day_code_pct": 8.6,
+    "turns_placeholder_day_code": 397,
+    "turns_placeholder_day_code_pct": 31.5,
+    "max_cited_page": 96,
+    "slide_pages_in_pack": 29
+  },
+  "question_shape": {
+    "turns_with_selection": 1252,
+    "turns_with_selection_pct": 99.3,
+    "template_questions": 357,
+    "template_questions_pct": 28.3,
+    "turns_no_student_words": 355,
+    "turns_no_student_words_pct": 28.2,
+    "median_question_chars": 35,
+    "median_student_text_chars": 19
+  },
+  "demand_signal": {
+    "summary_requests": 134,
+    "summary_requests_pct": 10.6,
+    "summary_request_users": 94,
+    "explicit_confusion": 8,
+    "explicit_confusion_pct": 0.6,
+    "explicit_confusion_users": 8,
+    "logistics": 5,
+    "logistics_pct": 0.4,
+    "repeat_page_in_session": 206
+  },
+  "instrumentation_gaps": {
+    "misconceptions_used": 0,
+    "follow_ups_used": 0,
+    "asked_check_question_true": 3,
+    "turns_with_rating": 70,
+    "turns_with_rating_pct": 5.6,
+    "rating_up": 33,
+    "rating_down": 37
+  },
+  "follow_up_signal": {
+    "definition": "cùng phiên + cùng trang + lượt gốc có câu trả lời ≥272 ký tự + cách nhau ≤30 phút + lượt sau có chữ học viên và có từ nối tiếp; loại 4 nhóm dương tính giả bằng luật",
+    "turns": 29,
+    "turns_pct": 2.3,
+    "audit": "audit tay 100%: 25 đúng / 29 → precision 86,2%"
+  },
+  "gap_signal_coverage": {
+    "turns_with_valid_gap_signal": 8,
+    "turns_with_valid_gap_signal_pct": 0.6,
+    "note": "Chỉ đếm signal 'nói rõ chưa hiểu'. Signal 'hỏi lại' và 'phản biện' cần phân tích theo cặp lượt, xem repeat_page_in_session là cận trên thô."
+  }
+}
