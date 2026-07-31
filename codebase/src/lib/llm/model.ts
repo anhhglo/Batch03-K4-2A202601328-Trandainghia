@@ -137,6 +137,39 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
+function toOpenAIStructuredOutputSchema(value: unknown): unknown {
+  if (Array.isArray(value)) {
+    return value.map(toOpenAIStructuredOutputSchema);
+  }
+  if (!isRecord(value)) {
+    return value;
+  }
+  if (typeof value.$ref === "string") {
+    // OpenAI requires a $ref node to contain no sibling annotations.
+    return { $ref: value.$ref };
+  }
+
+  const normalized = Object.fromEntries(
+    Object.entries(value)
+      // OpenAI Structured Outputs rejects these draft-07 annotations. The
+      // analyzer still enforces uniqueItems during canonical post-validation.
+      .filter(([key]) => key !== "$schema" && key !== "uniqueItems")
+      .map(([key, item]) => [key, toOpenAIStructuredOutputSchema(item)]),
+  );
+
+  if (!("type" in normalized) && "const" in normalized) {
+    const constant = normalized.const;
+    normalized.type =
+      constant === null
+        ? "null"
+        : Array.isArray(constant)
+          ? "array"
+          : typeof constant;
+  }
+
+  return normalized;
+}
+
 function parseResponseBody(rawBody: string): OpenAIResponseBody {
   try {
     const parsed: unknown = JSON.parse(rawBody);
@@ -246,7 +279,7 @@ export async function requestStructuredLearningTrace(
           format: {
             type: "json_schema",
             name: request.schemaName ?? "learning_trace_analysis",
-            schema: request.schema,
+            schema: toOpenAIStructuredOutputSchema(request.schema),
             strict: true,
           },
         },
