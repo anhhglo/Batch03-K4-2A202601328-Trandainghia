@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import {
+  AlertTriangle,
   ArrowRight,
   BookOpen,
   BookOpenText,
@@ -9,15 +10,18 @@ import {
   CheckCircle2,
   CircleAlert,
   FileCheck2,
+  Inbox,
   LockKeyhole,
   MessageSquareText,
   Network,
   NotebookTabs,
+  RefreshCw,
   ShieldCheck,
   Sparkles,
 } from "lucide-react";
 import { ContextSidebar } from "@/components/ContextSidebar";
 import { DaySelector } from "@/components/DaySelector";
+import { DemoDataLab } from "@/components/DemoDataLab";
 import {
   EvidenceModal,
   type EvidenceDetail,
@@ -26,18 +30,30 @@ import { Header } from "@/components/Header";
 import { KnowledgeMindmap } from "@/components/KnowledgeMindmap";
 import { MetricCard } from "@/components/MetricCard";
 import { PersonalizedNote } from "@/components/PersonalizedNote";
-import { mockLearningTrace } from "@/data/mock-learning-trace";
-import type { ReviewStatus } from "@/types/learning-trace";
+import {
+  createDemoDayShell,
+  createDemoSources,
+  createDemoTrace,
+  day02DemoInput,
+  day02DemoTrace,
+} from "@/data/day02-demo";
+import {
+  fetchLearningTraceAnalysis,
+  LearningTraceApiError,
+  mapAnalysisToDay,
+} from "@/lib/ui/learning-trace-adapter";
+import type { LearningTrace, ReviewStatus } from "@/types/learning-trace";
 
-type AppPhase = "preview" | "analyzing" | "ready";
+type AppPhase = "preview" | "analyzing" | "ready" | "empty" | "error";
 type ActiveTab = "note" | "mindmap";
-
-const trace = mockLearningTrace;
+const SHOW_DEMO_DATA_LAB = process.env.NODE_ENV !== "production";
 
 export function LearningTraceApp() {
   const [phase, setPhase] = useState<AppPhase>("preview");
+  const [trace, setTrace] = useState<LearningTrace>(day02DemoTrace);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<ActiveTab>("note");
-  const [activeDayId, setActiveDayId] = useState("day-02");
+  const [activeDayId, setActiveDayId] = useState(day02DemoInput.dayCode);
   const [evidenceDetail, setEvidenceDetail] =
     useState<EvidenceDetail | null>(null);
   const [statuses, setStatuses] = useState<Record<string, ReviewStatus>>(() =>
@@ -61,10 +77,48 @@ export function LearningTraceApp() {
 
   const reviewCount = activeDay.reviewItems.length - confirmedCount;
 
-  const startAnalysis = () => {
+  const startAnalysis = async (input = day02DemoInput) => {
     if (phase === "analyzing") return;
     setPhase("analyzing");
-    window.setTimeout(() => setPhase("ready"), 1350);
+    setErrorMessage(null);
+    const shell = createDemoDayShell(input);
+    const sources = createDemoSources(input);
+    setActiveDayId(shell.id);
+    setTrace(createDemoTrace(input));
+
+    try {
+      const analysis = await fetchLearningTraceAnalysis(input);
+      const analyzedDay = mapAnalysisToDay(analysis, {
+        shell,
+        sources,
+        interactionCount: input.interactions.length,
+      });
+      setTrace((current) => ({
+        ...current,
+        days: current.days.map((day) =>
+          day.id === analyzedDay.id ? analyzedDay : day,
+        ),
+      }));
+      setStatuses((current) => {
+        const next = { ...current };
+        analyzedDay.reviewItems.forEach((item) => {
+          next[item.id] ??= "suggested";
+        });
+        return next;
+      });
+      setPhase(
+        analyzedDay.topics.length === 0 && analyzedDay.reviewItems.length === 0
+          ? "empty"
+          : "ready",
+      );
+    } catch (error) {
+      setErrorMessage(
+        error instanceof LearningTraceApiError
+          ? error.message
+          : "Không thể tổng hợp Learning Trace. Vui lòng thử lại.",
+      );
+      setPhase("error");
+    }
   };
 
   const openStudyMaterial = () => {
@@ -72,7 +126,7 @@ export function LearningTraceApp() {
       eyebrow: "Học liệu đang mở",
       title: `${activeDay.label} · ${activeDay.title}`,
       description:
-        "Prototype CP2 mô phỏng liên kết quay lại slide và transcript chính thức của ngày học đang chọn.",
+        "Demo dùng transcript Day02 đã ẩn danh và chỉ hiển thị nguồn được cung cấp cho phiên phân tích.",
       meta: `${activeDay.slideCount} slide · ${activeDay.groundedSourceCount} nguồn đã đối chiếu`,
     });
   };
@@ -82,6 +136,13 @@ export function LearningTraceApp() {
       <Header />
 
       <main id="main-content">
+        {SHOW_DEMO_DATA_LAB ? (
+          <DemoDataLab
+            initialInput={day02DemoInput}
+            isRunning={phase === "analyzing"}
+            onRun={startAnalysis}
+          />
+        ) : null}
         <section className="border-b border-[#dce4ee] bg-white">
           <div className="mx-auto flex max-w-[1480px] flex-col gap-7 px-4 py-8 sm:px-6 lg:flex-row lg:items-center lg:justify-between lg:px-8 lg:py-10">
             <div className="max-w-3xl">
@@ -94,7 +155,7 @@ export function LearningTraceApp() {
                 </h1>
                 <span className="inline-flex items-center gap-1.5 rounded-full bg-[#edf3fb] px-3 py-1.5 text-xs font-bold text-[#2e5596]">
                   <Sparkles aria-hidden="true" className="h-3.5 w-3.5" />
-                  Bản thử nghiệm CP2
+                  AI thật · Day02
                 </span>
               </div>
               <p className="mt-3 max-w-2xl text-base leading-7 text-[#687790]">
@@ -123,7 +184,7 @@ export function LearningTraceApp() {
               {phase !== "ready" ? (
                 <button
                   type="button"
-                  onClick={startAnalysis}
+                  onClick={() => void startAnalysis()}
                   disabled={phase === "analyzing"}
                   className="inline-flex min-h-12 items-center justify-center gap-2 rounded-[14px] bg-[#2e5596] px-5 text-sm font-extrabold text-white shadow-[0_8px_20px_rgba(46,85,150,0.22)] transition-all hover:-translate-y-0.5 hover:bg-[#244a84] hover:shadow-[0_10px_24px_rgba(46,85,150,0.28)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2e5596] disabled:cursor-wait disabled:opacity-70 disabled:hover:translate-y-0"
                 >
@@ -231,7 +292,7 @@ export function LearningTraceApp() {
                       </p>
                       <button
                         type="button"
-                        onClick={startAnalysis}
+                        onClick={() => void startAnalysis()}
                         className="mt-5 inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-[#2e5596] px-4 text-sm font-extrabold text-white transition-colors hover:bg-[#244a84] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2e5596]"
                       >
                         <BrainCircuit aria-hidden="true" className="h-4 w-4" />
@@ -312,6 +373,54 @@ export function LearningTraceApp() {
                   <span className="h-1 w-1 rounded-full bg-[#aab5c4]" />
                   <span>{activeDay.topics.length} chủ đề</span>
                 </div>
+              </div>
+            </section>
+          ) : null}
+
+          {phase === "error" ? (
+            <section
+              className="mt-6 grid min-h-[420px] place-items-center rounded-[22px] border border-[#f3c9c9] bg-[#fff7f7] p-6 shadow-[0_12px_34px_rgba(15,35,64,0.06)]"
+              aria-live="assertive"
+            >
+              <div className="w-full max-w-md text-center">
+                <span className="mx-auto grid h-16 w-16 place-items-center rounded-[20px] bg-[#fbe4e4] text-[#c83b3b]">
+                  <AlertTriangle aria-hidden="true" className="h-7 w-7" />
+                </span>
+                <h2 className="mt-5 text-xl font-extrabold tracking-[-0.025em] text-[#0b1730]">
+                  Không thể tổng hợp Learning Trace
+                </h2>
+                <p className="mt-2 text-sm leading-6 text-[#71809a]">
+                  {errorMessage ??
+                    "Đã có lỗi khi tổng hợp dữ liệu. Vui lòng thử lại."}
+                </p>
+                <button
+                  type="button"
+                  onClick={() => void startAnalysis()}
+                  className="mt-5 inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-[#2e5596] px-4 text-sm font-extrabold text-white transition-colors hover:bg-[#244a84] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2e5596]"
+                >
+                  <RefreshCw aria-hidden="true" className="h-4 w-4" />
+                  Thử lại
+                </button>
+              </div>
+            </section>
+          ) : null}
+
+          {phase === "empty" ? (
+            <section
+              className="mt-6 grid min-h-[420px] place-items-center rounded-[22px] border border-[#dce4ee] bg-white p-6 shadow-[0_12px_34px_rgba(15,35,64,0.06)]"
+              aria-live="polite"
+            >
+              <div className="w-full max-w-md text-center">
+                <span className="mx-auto grid h-16 w-16 place-items-center rounded-[20px] bg-[#edf3fb] text-[#2e5596]">
+                  <Inbox aria-hidden="true" className="h-7 w-7" />
+                </span>
+                <h2 className="mt-5 text-xl font-extrabold tracking-[-0.025em] text-[#0b1730]">
+                  Chưa đủ dữ liệu cho {activeDay.label}
+                </h2>
+                <p className="mt-2 text-sm leading-6 text-[#71809a]">
+                  Không có chủ đề hoặc gợi ý ôn tập nào được tổng hợp từ lịch
+                  sử hỏi Tutor của buổi học này.
+                </p>
               </div>
             </section>
           ) : null}
@@ -416,7 +525,7 @@ export function LearningTraceApp() {
 
       <footer className="border-t border-[#dce4ee] bg-white">
         <div className="mx-auto flex max-w-[1480px] flex-col gap-2 px-4 py-5 text-xs text-[#7d8a9e] sm:flex-row sm:items-center sm:justify-between sm:px-6 lg:px-8">
-          <span>VLearn Learning Trace · Prototype CP2</span>
+          <span>VLearn Learning Trace · Demo AI thật</span>
           <span>Dữ liệu minh họa · Không phải đánh giá năng lực học viên</span>
         </div>
       </footer>

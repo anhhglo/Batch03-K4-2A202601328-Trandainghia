@@ -1,0 +1,299 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "LearningTraceAnalysis",
+  "description": "Canonical, grounded Learning Trace output for one learner, one conversation, and one learning day. Runtime validation must confirm that every sourceId and evidenceTurnId belongs to the supplied input allowlist.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "dayCode",
+    "topics",
+    "reviewItems",
+    "unassessableItems",
+    "relationships",
+    "meta"
+  ],
+  "properties": {
+    "dayCode": {
+      "$ref": "#/definitions/nonEmptyString"
+    },
+    "topics": {
+      "type": "array",
+      "maxItems": 10,
+      "items": {
+        "$ref": "#/definitions/topic"
+      }
+    },
+    "reviewItems": {
+      "type": "array",
+      "maxItems": 5,
+      "items": {
+        "$ref": "#/definitions/reviewItem"
+      }
+    },
+    "unassessableItems": {
+      "type": "array",
+      "maxItems": 5,
+      "items": {
+        "$ref": "#/definitions/unassessableItem"
+      }
+    },
+    "relationships": {
+      "type": "array",
+      "maxItems": 12,
+      "items": {
+        "$ref": "#/definitions/relationship"
+      }
+    },
+    "meta": {
+      "$ref": "#/definitions/meta"
+    }
+  },
+  "definitions": {
+    "nonEmptyString": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 600
+    },
+    "identifier": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 120,
+      "description": "Must be an ID supplied by the application when used as a source or evidence reference."
+    },
+    "evidenceTurnIds": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 5,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/definitions/identifier"
+      },
+      "description": "Each ID must match an interaction turn ID supplied in the request. Runtime allowlist validation is required."
+    },
+    "sourceIds": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 5,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/definitions/identifier"
+      },
+      "description": "Each ID must match an official slide or transcript source supplied in the request. Runtime allowlist validation is required."
+    },
+    "optionalSourceIds": {
+      "type": "array",
+      "maxItems": 5,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/definitions/identifier"
+      },
+      "description": "May be empty only for an unassessable item where an official source is unavailable. Any supplied ID still requires runtime allowlist validation."
+    },
+    "keyConcept": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "title",
+        "summary",
+        "sourceIds"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/definitions/identifier"
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120
+        },
+        "summary": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 280
+        },
+        "sourceIds": {
+          "$ref": "#/definitions/sourceIds"
+        }
+      }
+    },
+    "topic": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "title",
+        "summary",
+        "evidenceTurnIds",
+        "sourceIds",
+        "keyConcepts"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/definitions/identifier"
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120
+        },
+        "summary": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 600
+        },
+        "evidenceTurnIds": {
+          "$ref": "#/definitions/evidenceTurnIds"
+        },
+        "sourceIds": {
+          "$ref": "#/definitions/sourceIds"
+        },
+        "keyConcepts": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 5,
+          "items": {
+            "$ref": "#/definitions/keyConcept"
+          }
+        }
+      }
+    },
+    "reviewItem": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "title",
+        "reason",
+        "confidence",
+        "evidenceTurnIds",
+        "sourceIds",
+        "relatedTopicId"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/definitions/identifier"
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160
+        },
+        "reason": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 360,
+          "description": "A neutral explanation of the observed signal, not a judgment of learner ability."
+        },
+        "confidence": {
+          "type": "string",
+          "enum": [
+            "low",
+            "medium"
+          ]
+        },
+        "evidenceTurnIds": {
+          "$ref": "#/definitions/evidenceTurnIds"
+        },
+        "sourceIds": {
+          "$ref": "#/definitions/sourceIds"
+        },
+        "relatedTopicId": {
+          "$ref": "#/definitions/identifier",
+          "description": "Must match an ID in the topics array. Runtime referential validation is required."
+        }
+      }
+    },
+    "unassessableItem": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "reasonCode",
+        "reason",
+        "evidenceTurnIds",
+        "sourceIds"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/definitions/identifier"
+        },
+        "reasonCode": {
+          "type": "string",
+          "enum": [
+            "ambiguous_signal",
+            "insufficient_source",
+            "missing_context",
+            "non_learning_interaction"
+          ]
+        },
+        "reason": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 360
+        },
+        "evidenceTurnIds": {
+          "$ref": "#/definitions/evidenceTurnIds"
+        },
+        "sourceIds": {
+          "$ref": "#/definitions/optionalSourceIds"
+        }
+      }
+    },
+    "relationship": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "fromTopicId",
+        "toTopicId",
+        "label",
+        "sourceIds"
+      ],
+      "properties": {
+        "fromTopicId": {
+          "$ref": "#/definitions/identifier",
+          "description": "Must match a topic ID in the topics array. Runtime referential validation is required."
+        },
+        "toTopicId": {
+          "$ref": "#/definitions/identifier",
+          "description": "Must match a different topic ID in the topics array. Runtime referential validation is required."
+        },
+        "label": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120
+        },
+        "sourceIds": {
+          "$ref": "#/definitions/sourceIds"
+        }
+      }
+    },
+    "meta": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "model",
+        "promptVersion",
+        "groundedOnly"
+      ],
+      "properties": {
+        "model": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120,
+          "description": "Set and overwritten by server code; never trust a model-generated value."
+        },
+        "promptVersion": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120,
+          "description": "Set and overwritten by server code; never trust a model-generated value."
+        },
+        "groundedOnly": {
+          "const": true,
+          "description": "True only after the server has passed citation and evidence validation."
+        }
+      }
+    }
+  }
+}

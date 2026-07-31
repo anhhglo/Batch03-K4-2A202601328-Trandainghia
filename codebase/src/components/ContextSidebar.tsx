@@ -33,12 +33,12 @@ export function ContextSidebar({
               Nguồn & căn cứ
             </h2>
             <p className="text-[11px] text-[#8290a4]">
-              Học liệu chính thức
+              Nguồn được cấp cho phiên
             </p>
           </div>
         </div>
         <p className="mt-4 text-sm leading-6 text-[#64738b]">
-          Mỗi giải thích được đối chiếu với học liệu chính thức.
+          Chỉ source được cấp trong input mới được dùng cho phần giải thích.
         </p>
         <div className="mt-4 flex flex-wrap gap-2">
           {day.sources.map((source) => (
@@ -88,7 +88,7 @@ export function ContextSidebar({
                   eyebrow: "Lịch sử VLearn Tutor",
                   title: `${interaction.turnId} · ${interaction.page}`,
                   description: interaction.question,
-                  meta: "Dữ liệu mock cho CP2",
+                  meta: "Dữ liệu đã ẩn danh của phiên phân tích",
                 })
               }
               className="group w-full rounded-[14px] border border-[#e4eaf1] bg-[#f8fafc] p-3 text-left transition-colors hover:border-[#cbd8e7] hover:bg-[#f2f6fb] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2e5596]"
