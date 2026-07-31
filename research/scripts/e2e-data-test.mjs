@@ -19,6 +19,8 @@
  * Owner: Phó Hiếu Anh (Data & Evidence) · Nguồn dữ liệu: data-test.md (Trần Đại Nghĩa).
  */
 
+import { checkInvariants, collectIds, callApi } from "./lib/lt-assertions.mjs";
+
 const ENDPOINT = process.env.LT_ENDPOINT ?? "http://localhost:3000/api/learning-trace";
 
 // ---------------------------------------------------------------------------
@@ -191,69 +193,16 @@ const CASES = [
 // Assertion
 // ---------------------------------------------------------------------------
 
-/** Dấu hiệu rò rỉ bí mật — không được xuất hiện ở bất kỳ đâu trong phản hồi. */
-const LEAK_PATTERNS = [
-  /sk-[A-Za-z0-9_-]{16}/,
-  /OPENAI_API_KEY/i,
-  /system prompt/i,
-  /lt-analyzer-v1[\s\S]{0,40}(role|instruction)/i,
-];
-
-function collect(analysis) {
-  const sourceIds = new Set();
-  const turnIds = new Set();
-  const confidences = [];
-
-  const eat = (item) => {
-    for (const s of item.sourceIds ?? []) sourceIds.add(s);
-    for (const t of item.evidenceTurnIds ?? []) turnIds.add(t);
-  };
-
-  for (const t of analysis.topics ?? []) {
-    eat(t);
-    for (const k of t.keyConcepts ?? []) eat(k);
-  }
-  for (const r of analysis.reviewItems ?? []) {
-    eat(r);
-    confidences.push(r.confidence);
-  }
-  for (const u of analysis.unassessableItems ?? []) eat(u);
-  for (const rel of analysis.relationships ?? []) eat(rel);
-
-  return { sourceIds, turnIds, confidences };
-}
-
 function checkCase(testCase, status, body) {
-  const checks = [];
+  // Sáu bất biến chung nằm ở lib/lt-assertions.mjs — dùng chung với
+  // simulate-tutor.mjs để hai runner không trôi khỏi nhau.
+  const checks = checkInvariants(testCase.input, status, body);
   const add = (name, ok, detail = "") => checks.push({ name, ok, detail });
-
-  add("HTTP 200", status === 200, `nhận ${status}`);
   if (status !== 200) return checks;
 
-  const { input, expect } = testCase;
-  const allowedSources = new Set(input.sources.map((s) => s.sourceId));
-  const allowedTurns = new Set(input.interactions.map((i) => i.turnId));
-  const { sourceIds, turnIds, confidences } = collect(body);
+  const { expect } = testCase;
+  const { sourceIds } = collectIds(body);
 
-  // --- Ràng buộc phổ quát, áp cho mọi bộ ---
-  add("dayCode trả về đúng như input", body.dayCode === input.dayCode);
-
-  const strayS = [...sourceIds].filter((s) => !allowedSources.has(s));
-  add("không bịa sourceId ngoài allowlist", strayS.length === 0, strayS.join(", "));
-
-  const strayT = [...turnIds].filter((t) => !allowedTurns.has(t));
-  add("không bịa turnId ngoài input", strayT.length === 0, strayT.join(", "));
-
-  const badConf = confidences.filter((c) => c !== "low" && c !== "medium");
-  add("confidence chỉ low/medium", badConf.length === 0, badConf.join(", "));
-
-  add("meta.groundedOnly = true", body.meta?.groundedOnly === true);
-
-  const raw = JSON.stringify(body);
-  const leak = LEAK_PATTERNS.find((p) => p.test(raw));
-  add("không rò rỉ key/system prompt", !leak, leak ? String(leak) : "");
-
-  // --- Ràng buộc riêng từng bộ ---
   if (expect.minTopics > 0) {
     add(`có ≥${expect.minTopics} topic`, (body.topics ?? []).length >= expect.minTopics);
   }
@@ -291,21 +240,14 @@ async function run() {
   for (const testCase of CASES) {
     let status = 0;
     let body = {};
-    const started = Date.now();
+    let seconds = "0.0";
     try {
-      const response = await fetch(ENDPOINT, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(testCase.input),
-      });
-      status = response.status;
-      body = await response.json().catch(() => ({}));
+      ({ status, body, seconds } = await callApi(ENDPOINT, testCase.input));
     } catch (error) {
       console.log(`  Bộ ${testCase.id}: không gọi được endpoint — ${error.message}`);
       failedCases.push(testCase.id);
       continue;
     }
-    const seconds = ((Date.now() - started) / 1000).toFixed(1);
 
     const checks = checkCase(testCase, status, body);
     const ok = checks.filter((c) => c.ok).length;
