@@ -486,12 +486,31 @@ Chọn lesson bất kỳ, chỉ gửi các câu không thuộc học liệu:
 
 ## 16. Giới hạn đã đo, cần biết trước khi demo
 
+Các số dưới đây đo **sau khi** đặt `LEARNING_TRACE_REASONING_EFFORT=low`. Trước
+đó reasoning effort để mặc định của provider và phiên nhiều nguồn bị vỡ `504`.
+
 | Hiện tượng | Số đo | Ý nghĩa khi demo |
 |---|---|---|
-| Mỗi lượt chat Tutor | ~60–80s với `gpt-5-nano` | Bộ H (4 lượt) mất ~5 phút cả chat lẫn analyze. Đừng bấm liên tục. |
-| Analyze phiên 7 lượt × 8 source | **504 timeout** | `LEARNING_TRACE_TIMEOUT_MS` đang là 60000. Với lesson nhiều nguồn, giữ **tối đa 5–6 lượt**, hoặc nâng timeout (trần 120000). |
-| Lỗi tạm thời của provider | gặp `502 model_unavailable` khi gửi liên tiếp | Dùng nút **Thử lại**; route không tự retry vô hạn. |
+| Mỗi lượt chat Tutor | **2,4–7,4s** với `gpt-5-nano` | Trước khi sửa là ~60–80s mỗi lượt. |
+| Analyze phiên 7 lượt × 8 source | **11,9s** — HTTP 200 | Trước khi sửa: **504 timeout**. Còn nhiều dư địa so với giới hạn 60000ms. |
+| Cả phiên 7 lượt + analyze | **42,7s** | Chạy trọn Bộ H hoặc Bộ I trong lúc demo được, không cần cắt bớt lượt. |
+| Lỗi tạm thời của provider | có thể gặp `502 model_unavailable` khi gửi liên tiếp | Dùng nút **Thử lại**; route không tự retry vô hạn. |
 | Số nhánh mindmap | 1 nhánh nếu các câu cùng một mạch; 2+ nhánh nếu khác chủ đề rõ rệt | Muốn mindmap đẹp khi trình diễn thì chạy **Bộ H**, không phải Bộ I. |
+
+### Vì sao trước đây vỡ
+
+Đo trên đúng dạng request này (7 lượt × 8 source, `gpt-5-nano`, mỗi mức chạy 2
+lượt), **reasoning effort chiếm khoảng 90% độ trễ**:
+
+| Mức | Thời gian | Reasoning token | Kết quả |
+|---|---:|---:|---|
+| Mặc định của provider | 32,5s · 34,6s | 4.224 · 5.184 | topics=1, kc=1–2 |
+| `low` | 9,2s · 10,0s | 576 · 896 | topics=1, kc=1 |
+| `minimal` | 2,9s · 3,6s | 0 | topics=1, kc=2 |
+
+Learning Trace là bài toán bóc tách có căn cứ theo schema cho sẵn, không phải
+suy luận mở, nên `low` cho cùng số topic mà nhanh hơn 3,5 lần. Nếu một lần chạy
+cần cân nhắc sâu hơn thì đổi biến môi trường, không phải sửa code.
 
 ---
 

@@ -6,6 +6,23 @@ const DEFAULT_PROMPT_VERSION = "lt-analyzer-v1";
 const DEFAULT_TIMEOUT_MS = 30_000;
 const MAX_TIMEOUT_MS = 120_000;
 
+/**
+ * Reasoning effort dominates latency on the gpt-5 family. Measured on this
+ * request shape (7 interactions, 8 sources, gpt-5-nano), two passes each:
+ *
+ *   provider default  32.5s / 34.6s   (4224 / 5184 reasoning tokens)
+ *   low                9.2s / 10.0s   ( 576 /  896 reasoning tokens)
+ *   minimal            2.9s /  3.6s   (   0 reasoning tokens)
+ *
+ * The default pushed a rich session past the request timeout while producing
+ * the same topic and key-concept counts. Learning Trace is grounded extraction
+ * against a supplied schema, not open-ended reasoning, so "low" is the default
+ * here; override per environment when a run needs more deliberation.
+ */
+const REASONING_EFFORTS = ["minimal", "low", "medium", "high"] as const;
+type ReasoningEffort = (typeof REASONING_EFFORTS)[number];
+const DEFAULT_REASONING_EFFORT: ReasoningEffort = "low";
+
 export type JsonSchema = Record<string, unknown>;
 
 export type LearningTraceModelErrorCode =
@@ -52,6 +69,7 @@ export interface StructuredLearningTraceResponse
 interface LearningTraceModelConfig extends LearningTraceModelMetadata {
   apiKey: string;
   timeoutMs: number;
+  reasoningEffort: ReasoningEffort;
 }
 
 interface OpenAIContentItem {
@@ -111,6 +129,23 @@ function readTimeoutMs(): number {
   return timeoutMs;
 }
 
+function readReasoningEffort(): ReasoningEffort {
+  const rawValue = process.env.LEARNING_TRACE_REASONING_EFFORT?.trim();
+  if (!rawValue) {
+    return DEFAULT_REASONING_EFFORT;
+  }
+
+  const effort = rawValue.toLowerCase();
+  if (!REASONING_EFFORTS.includes(effort as ReasoningEffort)) {
+    throw new LearningTraceModelError(
+      "configuration",
+      `LEARNING_TRACE_REASONING_EFFORT must be one of ${REASONING_EFFORTS.join(", ")}.`,
+    );
+  }
+
+  return effort as ReasoningEffort;
+}
+
 function readConfig(): LearningTraceModelConfig {
   return {
     apiKey: readNonEmptyEnvironmentValue("OPENAI_API_KEY"),
@@ -120,6 +155,7 @@ function readConfig(): LearningTraceModelConfig {
       DEFAULT_PROMPT_VERSION,
     ),
     timeoutMs: readTimeoutMs(),
+    reasoningEffort: readReasoningEffort(),
   };
 }
 
@@ -131,6 +167,15 @@ export function getLearningTraceModelMetadata(): LearningTraceModelMetadata {
       DEFAULT_PROMPT_VERSION,
     ),
   };
+}
+
+/**
+ * Only reasoning models accept the `reasoning` parameter; sending it to a
+ * chat model such as gpt-4o-mini is rejected with HTTP 400. TEST-REPORT.md §5.4
+ * records gpt-4o-mini as a smoke-tested alternative, so keep it usable.
+ */
+function supportsReasoningEffort(model: string): boolean {
+  return /^(gpt-5|o[1-9])/i.test(model);
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -265,6 +310,9 @@ export async function requestStructuredLearningTrace(
       body: JSON.stringify({
         model: config.model,
         store: false,
+        ...(supportsReasoningEffort(config.model)
+          ? { reasoning: { effort: config.reasoningEffort } }
+          : {}),
         input: [
           {
             role: "system",
